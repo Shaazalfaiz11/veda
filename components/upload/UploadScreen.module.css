@@ -19,6 +19,15 @@
   flex: 1 1 auto;
   min-height: 0;
   isolation: isolate;
+  /*
+   * The two glows are drawn far wider than the frame and offset to the right,
+   * because the design only ever shows a corner of each. Nothing was clipping
+   * them, so they extended the document ~660px past the viewport and the
+   * landing page scrolled sideways at every desktop width. `clip` rather than
+   * `hidden`: it trims the decoration without turning this into a scroll
+   * container, which would change how the content below it behaves.
+   */
+  overflow: clip;
 }
 
 /* The two soft ellipses behind the content. They sit mostly below the frame

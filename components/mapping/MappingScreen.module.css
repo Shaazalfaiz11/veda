@@ -12,6 +12,9 @@
   flex: 1 1 auto;
   min-height: 0;
   isolation: isolate;
+  /* The glow is drawn wider than the frame; clip it rather than let it set
+     the document width. `clip` keeps the panes' own scrolling untouched. */
+  overflow: clip;
 }
 
 .glow {

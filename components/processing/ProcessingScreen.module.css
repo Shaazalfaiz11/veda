@@ -20,6 +20,9 @@
   flex: 1 1 auto;
   min-height: 0;
   isolation: isolate;
+  /* Same reason as the upload screen: the glows are drawn wider than the
+     frame by design and would otherwise scroll the page sideways. */
+  overflow: clip;
 }
 
 /* Ellipse 17 sits above the frame and Ellipse 16 below it, so only the

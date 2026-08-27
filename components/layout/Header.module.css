@@ -127,3 +127,111 @@
   flex-shrink: 0;
   color: var(--text-primary);
 }
+
+/*
+ * Menu button — mobile only.
+ *
+ * Not in the Figma file: the phone frames show no sidebar and no way back to
+ * it, so this is an addition rather than a translation. Hidden entirely above
+ * 900px, where the real sidebar is on screen and a second control for it
+ * would be noise.
+ */
+.menu {
+  display: none;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md, 12px);
+  background: transparent;
+  cursor: pointer;
+}
+
+.menu:hover {
+  background: var(--bg-offwhite-20);
+}
+
+/* One bar, plus two drawn with pseudo-elements. */
+.menuBars,
+.menuBars::before,
+.menuBars::after {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--text-primary);
+}
+
+.menuBars {
+  position: relative;
+}
+
+.menuBars::before,
+.menuBars::after {
+  content: '';
+  position: absolute;
+  left: 0;
+}
+
+.menuBars::before {
+  top: -6px;
+}
+
+.menuBars::after {
+  top: 6px;
+}
+
+@media (max-width: 900px) {
+  .menu {
+    display: flex;
+  }
+}
+
+/*
+ * Phone header.
+ *
+ * The bar holds back, breadcrumb, three icon actions and the user block. That
+ * is comfortable at 1440 and impossible at 320 — the user block was being
+ * crushed to 24px, which put the name and the chevron off the bar. The three
+ * icon actions are decoration in the design and nothing is reachable only
+ * through them, so they are what gives way; navigation and identity stay.
+ */
+@media (max-width: 560px) {
+  .help,
+  .action {
+    display: none;
+  }
+
+  .user {
+    /* Hold its intrinsic size and let the name ellipsis inside it, rather
+       than letting the row squeeze the whole control. */
+    flex-shrink: 0;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  /* Wide enough for "Shaaz Alfaiz" whole on a 390px phone; it only ellipsises
+     on the narrowest handsets, where nothing else would fit either. */
+  .userName {
+    max-width: 140px;
+  }
+}
+
+/*
+ * Below ~400px the bar cannot hold both the breadcrumb word and the name.
+ * The label goes rather than being cut to "Exa...", which reads as a bug; the
+ * breadcrumb icon stays, so the section is still indicated, and the freed
+ * space keeps the name whole.
+ */
+@media (max-width: 400px) {
+  .crumbLabel {
+    display: none;
+  }
+
+  .userName {
+    max-width: 120px;
+  }
+}

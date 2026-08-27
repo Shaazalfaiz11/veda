@@ -13,7 +13,15 @@
   display: flex;
   gap: var(--shell-gap);
   min-height: 100vh;
+  /* Dynamic viewport height: on a phone the URL bar is part of `vh`, so a
+     100vh shell is taller than the screen until the bar retracts and the page
+     rocks as it does. `dvh` tracks the space actually available. The `vh` line
+     above stays as the fallback for anything that does not support it. */
+  min-height: 100dvh;
   padding: var(--shell-gutter);
+  /* Decorative glows are drawn wider than the frame on purpose; nothing below
+     may scroll the page sideways because of them. */
+  overflow-x: clip;
 }
 
 /*
@@ -83,6 +91,92 @@
  */
 .shellFill {
   height: 100vh;
+  height: 100dvh;
   min-height: 0;
   overflow: hidden;
+}
+
+/*
+ * Mobile drawer.
+ *
+ * An addition, not a Figma translation — the phone frames simply have no
+ * sidebar. It carries the same `Sidebar` the desktop shell does, so the
+ * navigation is one component rather than two that drift apart.
+ *
+ * Sized against `dvh` and capped at the viewport width so it can never be the
+ * thing that scrolls the page sideways, and it scrolls internally when the
+ * nav is taller than a short phone in landscape.
+ */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  border: none;
+  padding: 0;
+  background: rgba(24, 24, 24, 0.45);
+  cursor: pointer;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(304px, calc(100vw - 48px));
+  height: 100vh;
+  height: 100dvh;
+  padding: 8px;
+  overflow: hidden;
+}
+
+.drawerInner {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.drawerClose {
+  flex: 0 0 auto;
+  min-height: 44px;
+  border: none;
+  border-radius: var(--radius-lg);
+  background: var(--bg-white);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.56px;
+  cursor: pointer;
+}
+
+.drawerClose:hover {
+  background: var(--bg-offwhite-20);
+}
+
+/* Above the phone breakpoint the real sidebar is on screen; the drawer must
+   never appear there even if a stale state survived a resize. */
+@media (min-width: 901px) {
+  .scrim,
+  .drawer {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .drawer {
+    animation: drawer-in 160ms ease-out;
+  }
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }

@@ -196,4 +196,15 @@
   .feedback {
     padding: 12px 16px;
   }
+
+  /*
+   * The chevron is a 24px box, which is a comfortable click and a poor tap.
+   * The padding grows rather than the icon, so the glyph stays the size the
+   * design draws it while the target reaches 44px.
+   */
+  .toggle {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 10px;
+  }
 }

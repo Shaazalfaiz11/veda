@@ -20,13 +20,28 @@ interface HeaderProps {
   /** Breadcrumb label. The design shows "Exams". */
   crumb?: string;
   userName?: string;
+  /** Opens the drawer. Only rendered where the sidebar is not on screen. */
+  onMenu?: () => void;
 }
 
-export function Header({ crumb = 'Exams', userName = 'Madhur Rastogi' }: HeaderProps) {
+export function Header({ crumb = 'Exams', userName = 'Shaaz Alfaiz', onMenu }: HeaderProps) {
   const router = useRouter();
 
   return (
     <header className={styles.header}>
+      {onMenu ? (
+        <button
+          type="button"
+          className={styles.menu}
+          onClick={onMenu}
+          aria-label="Open menu"
+        >
+          {/* Three bars, drawn rather than imported: the Figma file has no
+              phone header, so there is no exported asset for this. */}
+          <span className={styles.menuBars} aria-hidden="true" />
+        </button>
+      ) : null}
+
       <button type="button" className={styles.back} onClick={() => router.back()} aria-label="Go back">
         <Image
           className={styles.backIcon}
