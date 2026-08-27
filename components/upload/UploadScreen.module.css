@@ -1,0 +1,184 @@
+/*
+ * Figma: "Upload Screen - Empty State" 1:8744 / "filled state" 1:8797.
+ *
+ * Frame 1:8747 — 1103×694, column, gap 36, centred.
+ *   ├─ 1:8748  column, gap 20
+ *   │    ├─ 1:8749  column, gap 8   (title + subtitle)
+ *   │    ├─ 1:8756  hero
+ *   │    └─ 1:8773  dropzone tray
+ *   └─ 1:8790  column, gap 12       (button + hint)
+ */
+
+.screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 36px;
+  flex: 1 1 auto;
+  min-height: 0;
+  isolation: isolate;
+}
+
+/* The two soft ellipses behind the content. They sit mostly below the frame
+   in the design, so only the top of each glow is visible; anchoring them to
+   the bottom keeps that true at any viewport height. */
+.glow {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.glowFront {
+  bottom: -320px;
+  left: calc(50% + 166px);
+  transform: translateX(-50%);
+  width: 1318px;
+  height: 428px;
+}
+
+.glowFront img {
+  position: absolute;
+  inset: -93.46% -30.35%;
+  width: auto;
+  max-width: none;
+  height: auto;
+}
+
+.glowBack {
+  bottom: -549px;
+  left: calc(50% + 158.5px);
+  transform: translateX(-50%);
+  width: 1113px;
+  height: 428px;
+}
+
+.glowBack img {
+  position: absolute;
+  inset: -93.46% -35.94%;
+  width: auto;
+  max-width: none;
+  height: auto;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.title {
+  font-size: 40px;
+  font-weight: 700;
+  /* -4% of 40px */
+  letter-spacing: -1.6px;
+  line-height: 1.2;
+  color: var(--bg-dark-grey);
+  white-space: nowrap;
+}
+
+.titleChip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-orange-soft);
+}
+
+.titleChip span {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -1.6px;
+  line-height: 1.2;
+  color: var(--primary-orange);
+  white-space: nowrap;
+}
+
+.subtitle {
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: -0.8px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.hint {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.84px;
+  line-height: 22px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.hintError {
+  color: #e5484d;
+  font-weight: 500;
+}
+
+/*
+ * Mobile — Figma 1:10442 (empty) / 3:956 (filled), 393×853.
+ *
+ * The title stops being a single line and the chip wraps under the word
+ * "Upload", so the row becomes a centred wrap rather than a nowrap flex.
+ */
+@media (max-width: 900px) {
+  .screen {
+    gap: 24px;
+    padding: 8px 0 24px;
+    justify-content: flex-start;
+  }
+
+  .stack {
+    gap: 16px;
+    width: 100%;
+  }
+
+  .titleRow {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .title,
+  .titleChip span {
+    font-size: 28px;
+    letter-spacing: -1.12px;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .subtitle {
+    font-size: 16px;
+    letter-spacing: -0.64px;
+  }
+
+  .glowFront,
+  .glowBack {
+    display: none;
+  }
+}

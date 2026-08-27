@@ -1,0 +1,10 @@
+[
+  { "name": "sidebar (collapsed)", "selector": "aside",                              "x": 10,  "y": 12, "width": 64,   "height": 764 },
+  { "name": "header",              "selector": "header",                             "x": 86,  "y": 12, "width": 1341, "height": 56 },
+  { "name": "left pane",           "selector": "[class*='MappingScreen_left']",      "x": 86,  "y": 80, "width": 672 },
+  { "name": "list header row",     "selector": "[class*='MappingScreen_listHeader']","x": 102, "y": 96, "width": 640, "height": 44 },
+  { "name": "first question card", "selector": "[class*='QuestionCard_card']",       "x": 102, "y": 156, "width": 640, "height": 56 },
+  { "name": "right pane",          "selector": "[class*='MappingScreen_right']",     "x": 770, "y": 80 },
+  { "name": "viewer header",       "selector": "[class*='PageViewer_header']",       "x": 770, "y": 80, "height": 64 },
+  { "name": "number badge",        "selector": "[class*='QuestionCard_badge']",      "x": 114, "y": 168, "width": 32,  "height": 32 }
+]

@@ -1,0 +1,215 @@
+/*
+ * Figma: mapping content `1:8865` — 1343 wide, split 672 | 12 | 659.
+ * Both panes exceed the viewport in the frame, so each scrolls on its own
+ * rather than the page scrolling as a whole; that is what keeps the dark
+ * viewer header and the "Extracted Questions" row pinned while reading.
+ */
+
+.screen {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+  isolation: isolate;
+}
+
+.glow {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.glowTop {
+  top: 101px;
+  left: 241px;
+  width: 1113px;
+  height: 428px;
+}
+
+.glowTop img {
+  position: absolute;
+  inset: -93.46% -35.94%;
+  width: auto;
+  max-width: none;
+  height: auto;
+}
+
+.left {
+  display: flex;
+  flex-direction: column;
+  width: 672px;
+  flex: 0 0 672px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.leftInner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+/* Figma `1:8867` — 640x44, title left, "Expand All" right. */
+.listHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+}
+
+.listTitle {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.64px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* Figma `12:448` — a white pill, the light counterpart of the dark button. */
+.expandAll {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 12px 20px 12px 16px;
+  border-radius: var(--radius-button);
+  background: var(--bg-white);
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.56px;
+  line-height: 1.4;
+  color: var(--bg-button-dark);
+  text-align: center;
+  white-space: nowrap;
+  transition: background-color 120ms ease;
+}
+
+.expandAll:hover {
+  background: var(--bg-offwhite-primary);
+}
+
+/*
+ * The left pane carries a 16px inset (its children sit at x=16, y=16 in the
+ * frame); the right pane has none — `1:9017` starts flush at the content
+ * edge and its dark header is the first thing in it.
+ */
+.right {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* NOT IN FIGMA — the frame has no loading or empty rendering. */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex: 1 1 auto;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.stateTitle {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+  color: var(--text-primary);
+}
+
+.stateBody {
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -0.64px;
+  color: var(--text-secondary);
+  max-width: 460px;
+}
+
+/*
+ * Mobile — Figma 3:1192 / 3:1576 replace the split with a toggle between the
+ * question list and the answer sheet, so only one pane is on screen at a
+ * time. The toggle itself lives in MappingScreen.
+ */
+@media (max-width: 900px) {
+  .screen {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .left,
+  .right {
+    width: 100%;
+    flex: 1 1 auto;
+    padding: 0;
+  }
+
+  .leftInner {
+    padding: 8px;
+  }
+
+  /*
+   * Three controls do not fit on one 393px row, so the title takes a line of
+   * its own and the pane toggle sits beside "Expand All" underneath.
+   */
+  .listHeader {
+    flex-wrap: wrap;
+    row-gap: 12px;
+  }
+
+  .listTitle {
+    flex: 1 1 100%;
+    white-space: normal;
+  }
+
+  .expandAll {
+    padding: 10px 16px;
+  }
+
+  .paneHidden {
+    display: none;
+  }
+
+  .glowTop {
+    display: none;
+  }
+}
+
+.toggle {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding: 4px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-offwhite-20);
+  }
+
+  .toggleOption {
+    padding: 8px 16px;
+    border-radius: var(--radius-pill);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.56px;
+    color: var(--text-secondary);
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+
+  .toggleOptionActive {
+    background: var(--bg-white);
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+}

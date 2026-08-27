@@ -1,0 +1,182 @@
+/*
+ * Figma: question cards in the left pane — collapsed `1:8901`, expanded
+ * `1:8879`. 640 wide, 12px padding, radius 16, 16px gap between cards.
+ */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-white);
+  text-align: left;
+  transition: box-shadow 140ms ease;
+}
+
+/*
+ * The expanded card is the only one the design gives a border. It is drawn as
+ * an inset shadow rather than a CSS border because Figma strokes sit *inside*
+ * the frame: a real border would add 4px to every card's height and push the
+ * badge 2px off its measured position.
+ */
+.cardExpanded {
+  box-shadow: inset 0 0 0 2px #ff8d36;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+/*
+ * A question that has an answer is the control that highlights it, so the
+ * whole row takes the click. No box model change here — only the cursor —
+ * so the measured Figma geometry is untouched.
+ */
+.rowSelectable {
+  cursor: pointer;
+}
+
+/*
+ * Number badge. Two states: the expanded card's is solid orange, every other
+ * is dark. Both carry a 2px white-25% ring and their own shadow.
+ */
+.badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-pill);
+  background: rgba(43, 43, 43, 0.8);
+  box-shadow:
+    0 8px 8.8px 0 rgba(134, 134, 134, 0.1),
+    0 4px 16px 0 rgba(67, 67, 67, 0.1);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  line-height: normal;
+  color: var(--text-inverse);
+  white-space: nowrap;
+}
+
+.badgeActive {
+  background: var(--primary-orange);
+  box-shadow: none;
+  filter: drop-shadow(0 8px 4.4px rgba(255, 121, 80, 0.1));
+}
+
+/* A sub-part renders its letter under the number, as in Q11 a / Q11 b. */
+.badgePart {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.48px;
+  line-height: 1;
+}
+
+.text {
+  flex: 1 0 0;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -0.64px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.trailing {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg-offwhite-primary);
+  color: #1e1e1e;
+}
+
+/* AI feedback panel — Figma `12:529`. */
+.feedback {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 16px 24px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-offwhite-primary);
+}
+
+.feedbackTitle {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.64px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.feedbackBody {
+  width: 100%;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.56px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+/*
+ * NOT IN FIGMA — the frame only ever shows a graded card. These cover the
+ * states the real data actually produces: an answer the pipeline could not
+ * grade, and a question no answer reached.
+ */
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.tag {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-offwhite-20);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.48px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.tagHuman {
+  background: rgba(255, 86, 35, 0.1);
+  color: var(--primary-orange);
+}
+
+@media (max-width: 900px) {
+  .row {
+    gap: 12px;
+  }
+
+  .trailing {
+    gap: 8px;
+  }
+
+  .feedback {
+    padding: 12px 16px;
+  }
+}

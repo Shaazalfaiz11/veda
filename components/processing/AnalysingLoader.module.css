@@ -1,0 +1,150 @@
+/*
+ * Figma: "AnalysingLoader" 1:10254 — 177x221.492, column, gap 15, centred.
+ *
+ *   Icon container  1:10255   128.154 x 134.492
+ *   Text block      1:10266   177 x 72   (two 36px rows)
+ */
+
+.loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  width: 177px;
+}
+
+.icon {
+  position: relative;
+  width: 128.154px;
+  height: 134.492px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+/*
+ * The four sparkle layers are positioned by Figma's own inset percentages
+ * rather than by measured pixels, so they stay locked to each other if the
+ * container is ever resized.
+ */
+.layer {
+  position: absolute;
+  display: block;
+  width: auto;
+  max-width: none;
+  height: auto;
+}
+
+.layerStarLarge {
+  inset: 0 0 28.62% 25.36%;
+}
+
+.layerStarMedium {
+  inset: 46.47% 34.27% 0 9.75%;
+}
+
+.layerStarSmall {
+  inset: 62.27% 7.38% 16.32% 70.22%;
+}
+
+.layerDot {
+  inset: 35.32% 76.59% 55.39% 13.65%;
+}
+
+/* Figma draws the sparkles static; a loading screen that never moves reads as
+   frozen, so they breathe gently. Motion is opt-out, and the resting frame is
+   identical to the design. */
+.pulse {
+  animation: pulse 2.4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.pulseDelayed {
+  animation-delay: 0.8s;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 177px;
+}
+
+.headline {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  font-weight: 700;
+  /* -4% of 30px */
+  letter-spacing: -1.2px;
+  line-height: 36px;
+  white-space: nowrap;
+
+  /* Figma paints the word through a horizontal grey ramp rather than a flat
+     colour: #303030 → #808080 → #303030. */
+  background-image: linear-gradient(
+    90deg,
+    #303030 20%,
+    #606060 40%,
+    #808080 50%,
+    #606060 60%,
+    #303030 80%
+  );
+  background-size: 200% 100%;
+  background-position: 0 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 2.6s linear infinite;
+}
+
+/* Starts at the design's own background-position, so the first painted frame
+   matches the frame exactly. */
+@keyframes shimmer {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.subtext {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 400;
+  /* -6% of 20px */
+  letter-spacing: -1.2px;
+  line-height: 36px;
+  color: rgba(70, 70, 70, 0.75);
+  text-align: center;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse,
+  .headline {
+    animation: none;
+  }
+}
+
+/*
+ * Mobile — Figma 3:791 draws the loader at exactly the desktop size: the same
+ * 177x221.492 block, the same 30px headline and 20px subtext. So there is no
+ * type step-down here; scaling it would contradict the phone frame.
+ */

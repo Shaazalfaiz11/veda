@@ -1,0 +1,8 @@
+[
+  { "name": "sidebar",      "selector": "aside",                          "x": 12,  "y": 12,    "width": 304,  "height": 763 },
+  { "name": "header",       "selector": "header",                         "x": 327, "y": 12,    "width": 1100, "height": 56 },
+  { "name": "title row",    "selector": "h1",                             "x": 501, "y": 133.5, "width": 755,  "height": 56 },
+  { "name": "subtitle",     "selector": "h1 + p",                         "y": 197.5, "height": 28 },
+  { "name": "dropzone tray","selector": "[class*='tray']",                "x": 484, "y": 403.5, "width": 789,  "height": 205 },
+  { "name": "toolkit btn",  "selector": "[class*='toolkit']",             "x": 36,  "y": 132,   "width": 256,  "height": 42 }
+]

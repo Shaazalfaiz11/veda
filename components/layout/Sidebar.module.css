@@ -1,0 +1,332 @@
+/* Figma: "Side Bar" I1:8796 — 304×763, radius 16, padding 24. */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: var(--sidebar-width);
+  flex: 0 0 var(--sidebar-width);
+  padding: 24px;
+  background: var(--bg-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+}
+
+.top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 56px;
+  width: 100%;
+}
+
+.brandRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brandMark {
+  width: 40px;
+  height: 40px;
+}
+
+.brandName {
+  font-size: 28px;
+  font-weight: 700;
+  /* -6% of 28px */
+  letter-spacing: -1.68px;
+  line-height: 20px;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.collapse {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* "AI Teacher's Toolkit" — the one element the design sets in Inter. The
+   4px ring sits outside the fill, so the border is what creates the halo. */
+.toolkit {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 42px;
+  padding: 8px 43px;
+  border: 4px solid var(--primary-orange-ring);
+  border-radius: var(--radius-pill);
+  background: #272727;
+  filter: drop-shadow(0 16px 24px rgba(255, 255, 255, 0.12))
+    drop-shadow(0 32px 24px rgba(255, 255, 255, 0.2));
+}
+
+/* Figma applies the inner glow on a box inset by -4px, i.e. over the ring. */
+.toolkit::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 -1px 3.5px 0 rgba(177, 177, 177, 0.6),
+    inset 0 0 34.5px 0 rgba(255, 255, 255, 0.25);
+}
+
+.toolkitIcon {
+  width: 18.316px;
+  height: 17.316px;
+  flex-shrink: 0;
+}
+
+.toolkitLabel {
+  font-family: var(--font-ui);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.64px;
+  line-height: 28px;
+  color: var(--text-inverse);
+  white-space: nowrap;
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  transition: background-color 120ms ease;
+}
+
+.item:hover {
+  background: var(--bg-offwhite-primary);
+}
+
+.itemActive,
+.itemActive:hover {
+  background: var(--bg-offwhite-20);
+}
+
+.itemIcon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.itemLabel {
+  flex: 1 0 0;
+  min-width: 0;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -0.64px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemActive .itemLabel {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.school {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-offwhite-20);
+}
+
+/*
+ * Figma crops this from a much wider source: a 59x60 window over an image
+ * scaled to 538.54% x 106.67% and nudged by (0.38%, -2.18%). Fitting the
+ * whole image into the box instead would show the entire sprite shrunk to
+ * nothing, which is what "object-fit: contain" was doing.
+ */
+.schoolMarkFrame {
+  position: relative;
+  width: 59px;
+  height: 60px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.schoolMark {
+  position: absolute;
+  left: 0.38%;
+  top: -2.18%;
+  width: 538.54%;
+  height: 106.67%;
+  max-width: none;
+}
+
+.schoolText {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 0;
+  min-width: 0;
+}
+
+.schoolName {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.64px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.schoolCity {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.56px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * Collapsed variant — Figma "Side Bar" 1:10146, used by the Loading frame.
+ *
+ * 64x765 with 12px/10px padding (the metadata's geometry, not the class
+ * dump's `px-24`, which would leave 16px of inner width for a 40px logo).
+ * Labels are gone; every row is an icon centred in a 44px column.
+ */
+
+.sidebarCollapsed {
+  width: 64px;
+  flex: 0 0 64px;
+  padding: 12px 10px;
+}
+
+.sidebarCollapsed .top {
+  width: 44px;
+}
+
+.sidebarCollapsed .brandRow {
+  justify-content: center;
+}
+
+.sidebarCollapsed .toolkit {
+  padding: 8px 0;
+  gap: 0;
+}
+
+.sidebarCollapsed .menu {
+  align-items: center;
+  gap: 8px;
+  width: 44px;
+}
+
+/*
+ * Each row carries its own explicit height in the frame (36 / 38 / 38 / 40 /
+ * 36) rather than deriving one from padding, so they are set individually —
+ * a single shared height shifts every row below it.
+ */
+.sidebarCollapsed .item {
+  width: auto;
+  justify-content: center;
+  gap: 0;
+  padding: 8px 12px;
+}
+
+.itemCollapsedHome {
+  height: 36px;
+  padding: 8px;
+}
+
+.itemCollapsedClassroom,
+.itemCollapsedAssignments {
+  height: 38px;
+}
+
+.itemCollapsedExams {
+  height: 40px;
+  padding: 9px 12px;
+}
+
+.itemCollapsedLibrary {
+  height: 36px;
+}
+
+.sidebarCollapsed .bottom {
+  align-items: center;
+  width: 46.48px;
+  gap: 8px;
+}
+
+.schoolTile {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 11.52px;
+  background: var(--bg-offwhite-20);
+}
+
+.schoolTileFrame {
+  position: relative;
+  width: 42.48px;
+  height: 43.2px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.expand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 36px;
+  padding: 8px 12px;
+}
+
+.expandIcon {
+  width: 20px;
+  height: 20px;
+}

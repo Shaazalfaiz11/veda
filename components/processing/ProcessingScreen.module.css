@@ -1,0 +1,250 @@
+/*
+ * Figma: "Loading state" 1:9959 (1440x788).
+ *
+ *   Side Bar   1:10146   10,11   64x765    (collapsed variant)
+ *   Header     1:10144   86,12   1341x56
+ *   Content    1:9962    86,80   1343x696
+ *   Loader     1:10254   669,317.25  177x221.492  — dead centre of content
+ *
+ * Marked below: the frame contains no progress indicator and no failure
+ * state, so those two blocks are additions built from the same tokens. They
+ * are positioned absolutely so the Figma-derived loader keeps its exact
+ * centred position rather than being pushed by content the design never had.
+ */
+
+.screen {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-height: 0;
+  isolation: isolate;
+}
+
+/* Ellipse 17 sits above the frame and Ellipse 16 below it, so only the
+   soft edge of each is ever visible. */
+.glow {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.glowTop {
+  top: -295px;
+  left: 241px;
+  width: 1113px;
+  height: 428px;
+}
+
+.glowTop img {
+  position: absolute;
+  inset: -93.46% -35.94%;
+  width: auto;
+  max-width: none;
+  height: auto;
+}
+
+.glowBottom {
+  bottom: -226px;
+  left: 36px;
+  width: 1318px;
+  height: 428px;
+}
+
+.glowBottom img {
+  position: absolute;
+  inset: -93.46% -30.35%;
+  width: auto;
+  max-width: none;
+  height: auto;
+}
+
+/* ---------------------------------------------------------------------
+ * NOT IN FIGMA — stage progress.
+ *
+ * The API reports six stages and a progress number; the frame shows
+ * neither. Built from the existing tokens and kept deliberately quiet so it
+ * reads as part of the same screen.
+ * ------------------------------------------------------------------- */
+
+.progress {
+  position: absolute;
+  left: 50%;
+  /* Loader half-height is 110.75, so this clears its bottom edge by 40px. */
+  top: calc(50% + 151px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.track {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.segment {
+  width: 48px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(94, 94, 94, 0.15);
+  transition: background-color 320ms ease;
+}
+
+.segmentDone {
+  background: var(--primary-orange);
+}
+
+.segmentActive {
+  background: var(--primary-orange);
+  animation: segmentPulse 1.6s ease-in-out infinite;
+}
+
+.segmentFailed {
+  background: #e5484d;
+}
+
+@keyframes segmentPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.caption {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.56px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.notice {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.56px;
+  line-height: 1.4;
+  color: #b26a00;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------------
+ * NOT IN FIGMA — failure state.
+ * ------------------------------------------------------------------- */
+
+.failure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  max-width: 560px;
+  text-align: center;
+}
+
+.failureMark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-pill);
+  background: rgba(229, 72, 77, 0.1);
+  color: #e5484d;
+}
+
+.failureText {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.failureTitle {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -1.2px;
+  line-height: 36px;
+  color: var(--text-primary);
+}
+
+.failureMessage {
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: -1.2px;
+  line-height: 30px;
+  color: rgba(70, 70, 70, 0.75);
+}
+
+.failureStage {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.56px;
+  line-height: 1.4;
+  color: var(--text-faint);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 22px;
+  border: 1.5px solid var(--bg-offwhite-50);
+  border-radius: var(--radius-button);
+  background: var(--bg-white);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.56px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.secondary:hover {
+  border-color: var(--text-disabled);
+  background: var(--bg-offwhite-primary);
+}
+
+@media (max-width: 900px) {
+  .glowTop,
+  .glowBottom {
+    display: none;
+  }
+
+  .progress {
+    top: auto;
+    bottom: 24px;
+    width: calc(100% - 32px);
+  }
+
+  .track {
+    width: 100%;
+  }
+
+  .segment {
+    flex: 1 1 0;
+    width: auto;
+  }
+
+  .failureTitle {
+    font-size: 24px;
+    letter-spacing: -0.96px;
+  }
+
+  .failureMessage {
+    font-size: 16px;
+    letter-spacing: -0.64px;
+    line-height: 24px;
+  }
+}

@@ -1,0 +1,11 @@
+[
+  { "name": "sidebar (collapsed)", "selector": "aside",                                   "x": 10,     "y": 12,     "width": 64,      "height": 764 },
+  { "name": "header",              "selector": "header",                                  "x": 86,     "y": 12,     "width": 1341,    "height": 56 },
+  { "name": "loader block",        "selector": "[class*='AnalysingLoader_loader']",       "x": 668,    "y": 317.25, "width": 177,     "height": 221.49 },
+  { "name": "sparkle icon",        "selector": "[class*='AnalysingLoader_icon']",         "x": 692.42, "y": 317.25, "width": 128.154, "height": 134.492 },
+  { "name": "text block",          "selector": "[class*='AnalysingLoader_text']",         "y": 466.74, "width": 177, "height": 72 },
+  { "name": "headline row",        "selector": "[class*='AnalysingLoader_headline']",     "y": 466.74, "height": 36 },
+  { "name": "subtext row",         "selector": "[class*='AnalysingLoader_subtext']",      "y": 502.74, "height": 36 },
+  { "name": "toolkit (collapsed)", "selector": "[class*='Sidebar_toolkit']",              "x": 20,     "y": 120,    "width": 44,      "height": 42 },
+  { "name": "nav menu",            "selector": "[class*='Sidebar_menu']",                 "x": 20,     "y": 218,    "width": 44,      "height": 220 }
+]

@@ -1,0 +1,129 @@
+/* Figma: header bar 1:8795 — 1100×56, radius 16, pl 24 / pr 8, gap 10. */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--header-height);
+  /* Never absorb overflow from the content below it: in the viewport-pinned
+     mapping shell the bar was being squashed from 56 to 21, dragging every
+     measured position up with it. */
+  flex-shrink: 0;
+  padding-left: 24px;
+  padding-right: 8px;
+  background: var(--bg-white-75);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background: var(--bg-white);
+}
+
+.backIcon {
+  width: 24px;
+  height: 24px;
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 0 0;
+  min-width: 0;
+}
+
+.crumbIcon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.crumbLabel {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.64px;
+  color: var(--text-disabled);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.help {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background: var(--bg-offwhite-primary);
+}
+
+.helpRing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--text-primary);
+  border-radius: var(--radius-pill);
+  /* The design sets this glyph in Agrandir, which is not a webfont we can
+     license. Bricolage at the same size and tracking is the closest match. */
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.64px;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.action {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Shrinkable so a narrow viewport truncates the name rather than pushing
+     it past the bar's `overflow: hidden` edge and clipping it mid-word. */
+  min-width: 0;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background: var(--bg-offwhite-primary);
+  object-fit: cover;
+}
+
+.userName {
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.64px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chevron {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--text-primary);
+}

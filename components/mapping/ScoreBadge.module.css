@@ -1,0 +1,43 @@
+/*
+ * Figma: score pills `12:397` (full), `12:445` (partial), `12:406` (zero).
+ * All share px 12 / py 4, a pill radius and 16px bold type; only the two
+ * colours change.
+ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.64px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.full {
+  background: rgba(69, 181, 41, 0.1);
+  color: var(--success);
+}
+
+.partial {
+  background: rgba(255, 153, 0, 0.1);
+  color: #e3600f;
+}
+
+.zero {
+  background: #ffe9e2;
+  color: #c0350a;
+}
+
+/* NOT IN FIGMA — nothing in the frame shows an ungraded question. */
+.none {
+  background: var(--bg-offwhite-20);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.56px;
+}

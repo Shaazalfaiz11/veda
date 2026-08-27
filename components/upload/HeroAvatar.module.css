@@ -1,0 +1,128 @@
+/*
+ * Figma: "Frame 1618872259" 1:8756 — the teacher portrait with two rings and
+ * four orbiting badges.
+ *
+ * Every offset here is the design's own sub-pixel value. They look arbitrary
+ * because they are: the badges sit on a circle that was positioned by eye in
+ * Figma, and rounding them to whole pixels visibly breaks the orbit.
+ */
+
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 137.03px;
+  height: 138.031px;
+  padding: 13.203px 12.003px;
+  flex-shrink: 0;
+}
+
+.rings {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 138.031px;
+  height: 138.031px;
+}
+
+.ringOuter {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  width: 138.031px;
+  height: 138.031px;
+}
+
+.ringInner {
+  position: absolute;
+  left: 50%;
+  top: 15.6px;
+  transform: translateX(-50%);
+  width: 108.024px;
+  height: 108.024px;
+}
+
+.shoulders {
+  position: absolute;
+  left: 30.21px;
+  top: 30.33px;
+  width: 78.617px;
+  height: 77.78px;
+}
+
+/* The collar highlight: Figma insets the artwork past its box to fit the
+   stroke, so the box and the artwork have different sizes. */
+.collar {
+  position: absolute;
+  left: 55.01px;
+  top: 45.81px;
+  width: 29.006px;
+  height: 43.01px;
+}
+
+.collarArt {
+  position: absolute;
+  inset: -46.51% -68.97%;
+  width: auto;
+  max-width: none;
+  height: auto;
+}
+
+.portrait {
+  position: absolute;
+  left: 30.21px;
+  top: 11.4px;
+  width: 78.617px;
+  height: 96.821px;
+  border-radius: 52.745px;
+  object-fit: cover;
+}
+
+.orbit {
+  position: relative;
+  width: 113.025px;
+  height: 111.425px;
+}
+
+.badge {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12.803px;
+  height: 12.803px;
+  padding: 3.326px 3.151px;
+  border-radius: 175.031px;
+  background: var(--primary-orange-gradient);
+}
+
+.badgeIcon {
+  width: 7.001px;
+  height: 7.001px;
+  flex-shrink: 0;
+}
+
+.badgeTask {
+  left: 0;
+  top: 32.406px;
+}
+
+.badgeCloud {
+  left: 100.222px;
+  top: 69.816px;
+}
+
+.badgeClock {
+  left: 70.816px;
+  top: 0;
+}
+
+.badgeSettings {
+  left: 27.807px;
+  top: 98.619px;
+}

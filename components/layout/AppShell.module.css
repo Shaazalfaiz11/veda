@@ -1,0 +1,88 @@
+/*
+ * Shell geometry, measured off the 1440×787 frame:
+ *
+ *   12 │ sidebar 304 │ 11 │ main 1100 │ 13
+ *
+ * The right gutter is 13px rather than 12 in the design. Rather than
+ * reproduce a 1px asymmetry that reads as a mistake at every other width,
+ * the gutter is even and `main` takes the remaining space — at 1440 this is
+ * within a pixel of the frame, and it stays correct as the window grows.
+ */
+
+.shell {
+  display: flex;
+  gap: var(--shell-gap);
+  min-height: 100vh;
+  padding: var(--shell-gutter);
+}
+
+/*
+ * Collapsed shell — Figma "Loading state" 1:9959: 10 | 64 | 12 | 1341 | 13.
+ * The frame uses slightly different gutters from the Upload frames, so they
+ * are set here rather than shared.
+ */
+.shellCollapsed {
+  gap: 12px;
+  padding: 12px 13px 12px 10px;
+}
+
+.shellCollapsed .main {
+  /* Header bottom 68 -> content top 80. */
+  gap: 12px;
+}
+
+.shellCollapsed .sidebarSlot {
+  flex: 0 0 64px;
+}
+
+.sidebarSlot {
+  display: flex;
+  flex: 0 0 var(--sidebar-width);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  /* Header bottom 68 → content top 81. */
+  gap: 13px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/*
+ * Mobile — Figma frames are 393px wide and drop the sidebar entirely,
+ * so the shell becomes a single column with the header on top.
+ */
+@media (max-width: 900px) {
+  .shell {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .sidebarSlot {
+    display: none;
+  }
+
+  .main {
+    gap: 8px;
+  }
+}
+
+/*
+ * Screens whose panes scroll on their own (the mapping split) need the shell
+ * pinned to the viewport rather than growing with content — otherwise the
+ * page scrolls as a whole and the sidebar stretches to the full document
+ * height instead of staying beside the panes.
+ */
+.shellFill {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}

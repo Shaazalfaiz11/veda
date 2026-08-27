@@ -1,0 +1,257 @@
+/*
+ * Figma: dropzone pair 1:8774 (empty) / 1:8827 (filled).
+ *
+ * Both states share one container — 789×205, translucent white, radius 24,
+ * 12px padding — and the two panes inside it swap content. Building them as
+ * one component keeps the frame identical between states, which is what the
+ * design shows.
+ */
+
+.tray {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 789px;
+  height: 205px;
+  padding: 12px;
+  border-radius: var(--radius-2xl);
+  background: var(--bg-white-50);
+}
+
+.row {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  width: 100%;
+  flex: 1 0 0;
+  min-height: 0;
+}
+
+.pane {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 0 0;
+  min-width: 0;
+  height: 100%;
+  padding: 10px;
+  border: 1.5px dashed var(--bg-offwhite-50);
+  border-radius: var(--radius-xl);
+  background: var(--bg-white);
+  overflow: hidden;
+  text-align: center;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.paneEmpty {
+  cursor: pointer;
+}
+
+.paneEmpty:hover,
+.paneDragging {
+  border-color: var(--primary-orange);
+  background: #fffaf8;
+}
+
+.paneInvalid {
+  border-color: #e5484d;
+}
+
+.input {
+  display: none;
+}
+
+/* ---- empty state ---- */
+
+.prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.promptIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-offwhite-30);
+}
+
+.promptText {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.promptTitle {
+  font-size: 20px;
+  font-weight: 600;
+  /* -6% of 20px */
+  letter-spacing: -1.2px;
+  line-height: 22px;
+  color: var(--text-primary);
+}
+
+.promptTitle em {
+  font-style: normal;
+  color: var(--primary-orange);
+}
+
+.promptHint {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.84px;
+  line-height: 22px;
+  color: var(--text-faint);
+}
+
+/* ---- filled state ---- */
+
+.file {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 20px 12px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-offwhite-primary);
+  max-width: 100%;
+}
+
+/* Same crop treatment as the sidebar mark: a 35x40 window over a larger
+   source scaled to 142.86% x 125% and offset by (-21.43%, -12.38%). */
+.fileIconFrame {
+  position: relative;
+  width: 35px;
+  height: 40px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.fileIcon {
+  position: absolute;
+  left: -21.43%;
+  top: -12.38%;
+  width: 142.86%;
+  height: 125%;
+  max-width: none;
+}
+
+.fileText {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.fileName {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.64px;
+  line-height: 1.4;
+  color: var(--bg-dark-grey);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileMeta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.fileMetaText {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.56px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.fileMetaDot {
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+}
+
+/* The remove control sits over the pane, top-right of the file block. */
+.remove {
+  position: absolute;
+  top: 47px;
+  right: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 25.6px;
+  height: 25.6px;
+  padding: 3.2px;
+  border-radius: 32.8px;
+  background: rgba(43, 43, 43, 0.8);
+  box-shadow: 0 4px 11.4px 0 rgba(0, 0, 0, 0.25);
+}
+
+.removeIcon {
+  width: 9.6px;
+  height: 9.6px;
+}
+
+.error {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.52px;
+  line-height: 1.4;
+  color: #e5484d;
+  max-width: 300px;
+  white-space: normal;
+}
+
+/*
+ * Mobile — Figma 3:956 stacks the two panes and the tray fills the column.
+ */
+@media (max-width: 900px) {
+  .tray {
+    width: 100%;
+    height: auto;
+    padding: 8px;
+    border-radius: var(--radius-xl);
+  }
+
+  .row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pane {
+    height: auto;
+    min-height: 128px;
+    padding: 16px 10px;
+  }
+
+  .remove {
+    top: 10px;
+    right: 10px;
+  }
+
+  .fileName {
+    max-width: 180px;
+  }
+}
+
+/* Exported glyph is 21.33px inside the 48px tile (Figma 1:8778 → 1:8779). */
+.promptIconGlyph {
+  width: 21.333px;
+  height: 21.333px;
+}

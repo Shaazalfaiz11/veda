@@ -1,0 +1,208 @@
+/*
+ * Figma: right pane `1:9017` — dark header `1:9018` (659x64) over stacked
+ * page blocks `1:9029` / `1:9037` (659x824 each).
+ */
+
+.viewer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-dark-grey);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 12px 24px;
+  border-bottom: 1.25px solid rgba(0, 0, 0, 0.1);
+  background: var(--text-primary);
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.64px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-inverse);
+}
+
+.controlButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-inverse);
+  transition: opacity 120ms ease;
+}
+
+.controlButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.controlValue {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.56px;
+  line-height: 1.4;
+  color: var(--text-inverse);
+  white-space: nowrap;
+  /* Fixed so stepping the zoom does not make the buttons jump. */
+  min-width: 44px;
+  text-align: center;
+}
+
+.controlValueWide {
+  min-width: 86px;
+}
+
+.pages {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bg-dark-grey);
+}
+
+.page {
+  position: relative;
+  display: block;
+  margin: 0 auto;
+  /* The stage is the positioning context for every overlay on this page, and
+     is exactly the size of the rendered bitmap — which is what lets a
+     normalized rect be expressed as a percentage of it. */
+}
+
+.pageImage {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/*
+ * Overlay — Figma `1:9033`. The box is drawn from a normalized rect, so its
+ * position and size are percentages of the stage rather than pixels: the
+ * browser recomputes them on every zoom step and every resize, and the rect
+ * in state never changes.
+ */
+.overlay {
+  position: absolute;
+  border: 2px solid #3dd218;
+  border-radius: var(--radius-lg);
+  background: rgba(94, 255, 53, 0.1);
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.overlayDim {
+  opacity: 0.25;
+}
+
+/*
+ * The selected answer. Dimming the others already separates it, but on a page
+ * holding only one region there is nothing to compare against, so the box
+ * carries its own emphasis and does not rely on the contrast alone.
+ */
+.overlayFocused {
+  border-color: var(--primary-orange);
+  background: rgba(255, 86, 35, 0.12);
+  box-shadow: 0 0 0 4px rgba(255, 86, 35, 0.18);
+}
+
+.overlayDiagram {
+  border-style: dashed;
+}
+
+/* The Q-tag sits on the box's top edge. Its own size is chrome, not content,
+   so it stays constant while the box scales. */
+.tag {
+  position: absolute;
+  left: 14px;
+  top: -28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  border-radius: 12px 12px 0 0;
+  background: var(--success);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.64px;
+  line-height: 1.4;
+  color: var(--text-inverse);
+  white-space: nowrap;
+}
+
+.tagUnmapped {
+  background: var(--text-disabled);
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 48px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 16px;
+  letter-spacing: -0.64px;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .header {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .title {
+    font-size: 14px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Below ~480px the zoom and pager alone fill the bar. The pane toggle
+     directly above already says "Answers", so the title is the thing to
+     drop rather than letting the pager overflow the edge. */
+  @media (max-width: 480px) {
+    .title {
+      display: none;
+    }
+
+    .controls {
+      flex: 1 1 auto;
+      justify-content: space-between;
+    }
+  }
+
+  .controls {
+    gap: 8px;
+  }
+
+  .control {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+}
