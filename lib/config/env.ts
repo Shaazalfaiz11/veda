@@ -165,6 +165,20 @@ const EnvSchema = z.object({
    * tokens, so three plus a prompt sits just inside the 8,000/minute budget
    * this tier allows — the real constraint, tighter than the API's own limit.
    */
+  /**
+   * Completion budgets, per kind of call.
+   *
+   * These are charged against the per-minute budget at admission, not on
+   * return, so a ceiling far above what a call can produce is spent whether it
+   * is used or not. Measured on a real run: an adjudication replies in about
+   * 80 tokens and a grade in about 350, against the 2,500 both were reserving
+   * — 2.4K and 2.2K wasted on every call. Each is set to several times its
+   * observed maximum, which is headroom for an unusual answer without
+   * reserving a stage's worth of budget for a sentence.
+   */
+  GROQ_MAX_OUTPUT_TOKENS_ADJUDICATION: z.coerce.number().int().positive().default(400),
+  GROQ_MAX_OUTPUT_TOKENS_GRADING: z.coerce.number().int().positive().default(1_200),
+
   GROQ_MAX_IMAGES_PER_REQUEST: z.coerce.number().int().min(1).max(5).default(3),
 
   /**

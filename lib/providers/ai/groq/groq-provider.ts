@@ -31,6 +31,10 @@ import { GeminiQuestionResponseSchema } from '../gemini/schema';
 import { GeminiAdjudicationSchema } from '../gemini/adjudication-schema';
 import { GeminiGradingSchema } from '../gemini/grading-schema';
 import {
+  getGroqRateLimiter,
+  readRateLimitHeaders,
+} from './rate-limiter';
+import {
   GROQ_ADJUDICATION_SCHEMA,
   GROQ_ANSWER_SCHEMA,
   GROQ_GRADING_SCHEMA,
@@ -66,6 +70,16 @@ import {
 
 const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 
+/**
+ * Cost of one page image, and the margin left unclaimed.
+ *
+ * Measured against the live API: one page image plus a short prompt reports
+ * ~1,841 prompt tokens, so ~2,100 is the figure with a little slack. The
+ * headroom absorbs the difference between our estimate and the provider's.
+ */
+const IMAGE_TOKENS = 2_100;
+const HEADROOM = 600;
+
 interface ChatContent {
   type: 'text' | 'image_url';
   text?: string;
@@ -88,6 +102,8 @@ export class GroqProvider implements AIProvider {
   private readonly apiKey: string;
   private readonly timeoutMs: number;
   private readonly maxOutputTokens: number;
+  private readonly maxOutputTokensAdjudication: number;
+  private readonly maxOutputTokensGrading: number;
   private readonly maxImages: number;
   private readonly imageMaxDimension: number;
   private readonly tpmBudget: number;
@@ -106,6 +122,8 @@ export class GroqProvider implements AIProvider {
     this.model = env.GROQ_MODEL;
     this.timeoutMs = env.GROQ_TIMEOUT_MS;
     this.maxOutputTokens = env.GROQ_MAX_OUTPUT_TOKENS;
+    this.maxOutputTokensAdjudication = env.GROQ_MAX_OUTPUT_TOKENS_ADJUDICATION;
+    this.maxOutputTokensGrading = env.GROQ_MAX_OUTPUT_TOKENS_GRADING;
     this.maxImages = env.GROQ_MAX_IMAGES_PER_REQUEST;
     this.imageMaxDimension = env.GROQ_IMAGE_MAX_DIMENSION;
     this.tpmBudget = env.GROQ_TPM_BUDGET;
@@ -198,6 +216,7 @@ export class GroqProvider implements AIProvider {
         candidates: request.candidates,
       }),
       pages: [],
+      maxOutputTokens: this.maxOutputTokensAdjudication,
     });
 
     const result = GeminiAdjudicationSchema.safeParse(json);
@@ -223,6 +242,7 @@ export class GroqProvider implements AIProvider {
       schema: GROQ_GRADING_SCHEMA,
       prompt: buildGradingPrompt(request),
       pages: [],
+      maxOutputTokens: this.maxOutputTokensGrading,
     });
 
     const result = GeminiGradingSchema.safeParse(json);
@@ -315,17 +335,25 @@ export class GroqProvider implements AIProvider {
    * headroom subtracted at the end, cover the rolling window still holding
    * tokens from the previous request.
    */
-  private outputBudgetFor(imageCount: number, prompt: string): number {
-    const IMAGE_TOKENS = 2_100;
-    const HEADROOM = 600;
-
+  private outputBudgetFor(imageCount: number, prompt: string, ceiling: number): number {
     const promptTokens = Math.ceil(prompt.length / 4);
     const available =
       this.tpmBudget - imageCount * IMAGE_TOKENS - promptTokens - HEADROOM;
 
     // Never below a floor: a reservation too small to hold one answer would
     // truncate every time, which is worse than being refused.
-    return Math.max(1_000, Math.min(this.maxOutputTokens, available));
+    return Math.max(1_000, Math.min(ceiling, available));
+  }
+
+  /**
+   * What this request will cost the per-minute budget.
+   *
+   * Input plus the reservation, which is what the provider charges at
+   * admission. The limiter schedules against this and then replaces it with
+   * the figure the response reports.
+   */
+  private estimateFor(imageCount: number, prompt: string, reserved: number): number {
+    return imageCount * IMAGE_TOKENS + Math.ceil(prompt.length / 4) + reserved;
   }
 
   private async call(input: {
@@ -333,6 +361,8 @@ export class GroqProvider implements AIProvider {
     schema: JsonSchema;
     prompt: string;
     pages: PageImage[];
+    /** Reservation ceiling for this kind of call. Defaults to the global one. */
+    maxOutputTokens?: number;
   }): Promise<{ json: unknown; usage: ProviderUsage | null }> {
     const scaled = await Promise.all(input.pages.map((page) => this.forRequest(page)));
 
@@ -341,10 +371,16 @@ export class GroqProvider implements AIProvider {
       { type: 'text', text: input.prompt },
     ];
 
+    const reserved = this.outputBudgetFor(
+      input.pages.length,
+      input.prompt,
+      input.maxOutputTokens ?? this.maxOutputTokens,
+    );
+
     const body = {
       model: this.model,
       temperature: 0,
-      max_completion_tokens: this.outputBudgetFor(input.pages.length, input.prompt),
+      max_completion_tokens: reserved,
       // Mandatory. Qwen3 otherwise spends the whole budget reasoning and
       // returns an empty body.
       reasoning_effort: 'none',
@@ -354,6 +390,19 @@ export class GroqProvider implements AIProvider {
       },
       messages: [{ role: 'user', content }],
     };
+
+    /*
+     * Wait for room in the shared per-minute budget before sending.
+     *
+     * This is the only pacing in the pipeline. The stages used to sleep a
+     * fixed interval each, which neither knew what the other stages had spent
+     * nor what this particular request would cost.
+     */
+    const limiter = getGroqRateLimiter();
+    const settle = await limiter.acquire(
+      this.estimateFor(input.pages.length, input.prompt, reserved),
+      input.schemaName,
+    );
 
     let response: Response;
 
@@ -368,14 +417,30 @@ export class GroqProvider implements AIProvider {
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (error) {
+      settle(null, { limitTokens: null, remainingTokens: null, resetTokensMs: null });
       throw classifyGroqTransportError(error, this.timeoutMs);
     }
 
+    const headers = readRateLimitHeaders(response);
+
     if (!response.ok) {
-      throw await classifyGroqResponse(response);
+      const error = await classifyGroqResponse(response);
+
+      // A refusal means the window is genuinely full, whatever we counted.
+      // Hold every caller off for as long as Groq asked rather than letting
+      // the next one walk into the same wall.
+      if (response.status === 429) {
+        const retryAfterMs = (error as { details?: { retryAfterMs?: number } }).details
+          ?.retryAfterMs;
+        limiter.penalise(retryAfterMs ?? headers.resetTokensMs ?? null);
+      }
+
+      settle(null, headers);
+      throw error;
     }
 
     const parsed = (await response.json()) as ChatResponse;
+    settle(parsed.usage?.total_tokens ?? null, headers);
     const text = parsed.choices?.[0]?.message?.content;
 
     if (!text || text.trim().length === 0) {
