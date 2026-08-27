@@ -1,21 +1,122 @@
-# VedaAI — AI Assessment Extraction & Answer Mapping
+# VedaAI — Assessment Extraction & Answer Mapping
 
-Backend, queue, document ingestion, extraction, hybrid question-answer
-mapping, human review, and rubric-aware grading. Phase 1 established the API,
-queue and worker. Phase 2 added document ingestion and the canonical prepared
-page. Phase 3 added Gemini question extraction. Phase 4 added Gemini
-handwritten answer extraction. Phase 5 maps each answer to a question using
-cheap deterministic signals, narrowed to a shortlist an LLM adjudicates --
-never a full-paper LLM mapping. Phase 6 added a human review layer over those
-mappings, leaving the AI's original decision untouched.
+Upload a question paper and a student's handwritten answer sheet. The system
+reads both, works out which answer belongs to which question, and shows a
+teacher the exact region of the sheet each answer occupies — click a question,
+the viewer jumps to the right page and highlights the handwriting.
 
-Phase 7 marks each answer against the question *currently in force* for it --
-the teacher's correction where one exists, the AI's mapping otherwise. The
-model returns a criterion-by-criterion recommendation; the application checks
-every id and ceiling, adds the total up itself, and decides whether the result
-can stand without a human.
+Grading and AI feedback run on top of that when the paper prints its marks.
 
-**`FINALIZING` is still a placeholder,** and there is no frontend.
+```
+Question paper (PDF/PNG/JPEG)        Handwritten answer sheet
+              │                                │
+              └──────────────┬─────────────────┘
+                             ↓
+                      PREPARING            rasterise every page
+                             ↓
+              EXTRACTING_QUESTIONS         printed order, sub-parts kept apart
+                             ↓
+                EXTRACTING_ANSWERS         transcribe + locate the handwriting
+                             ↓
+                          MAPPING          embeddings → shortlist → adjudication
+                             ↓
+                          GRADING          rubric → marks → feedback  (optional)
+                             ↓
+                        COMPLETED
+```
+
+## What it does
+
+| | |
+| --- | --- |
+| **Extraction** | Every question in printed order, original numbering preserved, `27 (a)` and `27 (b)` as separate questions, `OR` alternatives kept with the question they belong to |
+| **Handwriting** | Answers transcribed and located, with `[unclear]` where the writing genuinely cannot be read rather than a plausible guess |
+| **Mapping** | Local embeddings and deterministic signals build a shortlist; the model only adjudicates the ambiguous ones; a global assignment stops two answers claiming one question |
+| **Highlighting** | Normalised `[0,1]` coordinates rendered as percentages, so the overlay stays on the handwriting at any zoom, window size or breakpoint. An answer spanning two pages is drawn on both |
+| **Edge cases** | Answers written out of order, unanswered questions, and student work that matches no question are each shown as what they are |
+| **Grading** | Marks computed by the application from criterion marks — never copied from the model — with a confidence that decides whether a human should look |
+
+## Stack
+
+Next.js 15 · BullMQ over Redis · Groq `qwen/qwen3.8-27b` for vision and
+adjudication · `Xenova/all-MiniLM-L6-v2` embeddings in-process · Zod at every
+boundary · CSS Modules against a Figma design · Vitest (883 tests)
+
+## Quick start
+
+**Prerequisites:** Node 22+, Docker (for Redis), and a Groq API key from
+[console.groq.com/keys](https://console.groq.com/keys).
+
+```bash
+# 1. Install
+npm install
+
+# 2. Configure — then open .env.local and set GROQ_API_KEY
+cp .env.example .env.local
+
+# 3. Redis
+npm run redis:up
+
+# 4. The app, in one terminal
+npm run dev
+
+# 5. The worker, in a second terminal
+npm run dev:worker
+```
+
+Open <http://localhost:3000>, upload the two files, and the app routes itself
+through processing to the mapping screen.
+
+Run **one** worker. Two on a free provider tier spend the same per-minute token
+budget twice and both get refused.
+
+### Production
+
+```bash
+npm run build
+npm run start:all      # web server and worker in one process
+```
+
+Do not run `npm run build` while the dev server is up — both write to `.next/`
+and the dev server's chunks get clobbered. Recovery is `rm -rf .next`.
+
+## Checks
+
+```bash
+npm test           # 883 tests
+npm run typecheck  # tsc --noEmit
+npm run lint       # eslint
+```
+
+## How long a run takes
+
+About **10 minutes** for a 5-page paper and a 5-page answer sheet, and that is
+almost entirely the provider's free tier rather than the code. A page image
+costs ~2,100 tokens against an 8,000 tokens-per-minute ceiling, so roughly one
+vision request per minute is what the tier admits, and a run needs 28 calls.
+Scheduling was measured against this and made it worse; see
+`lib/providers/ai/groq/rate-limiter.ts` for what was tried and why the plain
+pacing stayed.
+
+## Known limitations
+
+Worth stating plainly rather than discovering in a demo:
+
+- **The answer sheet must be handwritten student work.** Given a printed
+  solutions PDF, extraction finds nothing usable — that is the input being
+  wrong, not a bug.
+- **Answer regions are model-estimated.** They land on the right page and the
+  right block of writing, but they are not pixel-tight; the model rounds
+  coordinates. Exact ink bounds would need image analysis this does not do.
+- **A paper whose numbers are printed rather than handwritten maps on
+  semantics alone.** With no student-written label the confidence signal is
+  weaker, so mappings come back as `HUMAN_REVIEW` rather than auto-mapped.
+  That is the system declining to claim certainty it does not have.
+- **Grading marks a rubric derived from the printed marks**, labelled
+  `GENERATED`, never presented as the examiner's. Every grade against a
+  generated rubric is flagged for review by design.
+- **Exam PDFs are not committed.** `fixtures/` is gitignored — the papers used
+  in development are third-party material. See below to rebuild a pair.
 
 ## Architecture
 
@@ -40,24 +141,10 @@ PREPARE → EXTRACT_QUESTIONS → EXTRACT_ANSWERS → MAP_ANSWERS → GRADE → 
    ▲            ▲                    ▲               ▲            ▲
    │            │                    │               │            └── effective mapping → rubric → marks
    │            │                    │               └── candidates → LLM adjudication → assignment
-   │            │                    └── Gemini transcribes the handwritten answer sheet
-   │            └── Gemini reads the question paper into validated questions
+   │            │                    └── the model transcribes the handwritten answer sheet
+   │            └── the model reads the question paper into validated questions
    └── upload → validate → store → prepare → render → page metadata
 ```
-
-## Getting started
-
-```bash
-npm install
-cp .env.example .env.local   # then set GROQ_API_KEY
-
-npm run redis:up      # Redis via Docker (or point REDIS_URL at your own)
-npm run dev           # API on http://localhost:3000
-npm run dev:worker    # worker, in a second terminal
-```
-
-Run **one** worker. Two workers on a free provider tier spend the same
-per-minute token budget twice and both get refused.
 
 ## Walking through it
 
