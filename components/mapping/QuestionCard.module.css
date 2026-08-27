@@ -167,6 +167,23 @@
   color: var(--primary-orange);
 }
 
+/* Correctness, in the same pill as every other state on the card. The tones
+   match the score badge, so the word and the number never read differently. */
+.tagCorrect {
+  background: rgba(52, 172, 21, 0.12);
+  color: var(--success);
+}
+
+.tagPartial {
+  background: rgba(255, 86, 35, 0.1);
+  color: var(--primary-orange);
+}
+
+.tagIncorrect {
+  background: rgba(214, 43, 43, 0.1);
+  color: #d62b2b;
+}
+
 @media (max-width: 900px) {
   .row {
     gap: 12px;

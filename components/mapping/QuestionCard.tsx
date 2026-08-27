@@ -51,6 +51,17 @@ export function QuestionCard({
    */
   const selectable = hasAnswer || hasFeedback;
 
+  /*
+   * Correctness in words, beside the marks.
+   *
+   * Derived from the marks the grading service already computed rather than
+   * asked of the model separately, so the label and the number can never
+   * disagree. A grade with no marks says why instead: an answer nothing could
+   * be marked against, and one whose marking failed, are different situations
+   * and neither of them is a zero.
+   */
+  const verdict = correctnessOf(grade);
+
   return (
     <div className={`${styles.card} ${expanded ? styles.cardExpanded : ''}`}>
       {/* The chevron below is the keyboard control; this only adds the larger
@@ -71,6 +82,13 @@ export function QuestionCard({
               <span className={styles.tag}>No answer mapped</span>
             </span>
           )}
+          {verdict ? (
+            <span className={styles.meta}>
+              <span className={`${styles.tag} ${verdict.tone ? styles[verdict.tone] : ''}`}>
+                {verdict.label}
+              </span>
+            </span>
+          ) : null}
           {grade?.mappingSource === 'HUMAN' ? (
             <span className={styles.meta}>
               <span className={`${styles.tag} ${styles.tagHuman}`}>Teacher corrected</span>
@@ -109,4 +127,33 @@ export function QuestionCard({
       ) : null}
     </div>
   );
+}
+
+type Verdict = {
+  label: string;
+  tone: 'tagCorrect' | 'tagPartial' | 'tagIncorrect' | null;
+};
+
+/** What the marks say about this answer, or why there are none. */
+function correctnessOf(grade: GradeItem | null): Verdict | null {
+  if (!grade) return null;
+
+  if (grade.status === 'FAILED') return { label: 'Could not be marked', tone: null };
+
+  if (grade.status === 'NOT_GRADEABLE') {
+    return {
+      label:
+        grade.notGradeableReason === 'MARK_SCHEME_UNAVAILABLE'
+          ? 'No marks to grade against'
+          : 'Not gradeable',
+      tone: null,
+    };
+  }
+
+  if (grade.awardedMarks === null || grade.maximumMarks === null) return null;
+
+  if (grade.awardedMarks >= grade.maximumMarks) return { label: 'Correct', tone: 'tagCorrect' };
+  if (grade.awardedMarks <= 0) return { label: 'Incorrect', tone: 'tagIncorrect' };
+
+  return { label: 'Partially correct', tone: 'tagPartial' };
 }

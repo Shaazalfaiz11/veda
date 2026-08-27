@@ -230,6 +230,65 @@ describe.skipIf(!available)('grading over real pipeline output', () => {
     ).toBe(snapshot);
   });
 
+  /*
+   * The regression this pipeline earned the hard way.
+   *
+   * Grading is optional; extraction and mapping are not. A grading failure
+   * once threw from the stage handler, the runner marked the whole assessment
+   * FAILED, and a teacher lost 38 extracted questions and every mapped answer
+   * over a mark nobody had asked for yet. Both halves of the fix are asserted
+   * here: the run still reaches COMPLETED, and everything upstream survives
+   * byte for byte.
+   */
+  it('keeps questions, answers and mappings when every grading call fails', async () => {
+    const assessment = await createAssessment({ title: 'grading survives failure' });
+    const assessmentId = assessment.id;
+
+    await uploadDocument({
+      assessmentId,
+      type: 'QUESTION_PAPER',
+      filename: 'q.pdf',
+      declaredMimeType: 'application/pdf',
+      data: makePdf([A4_PORTRAIT]),
+    });
+    await uploadDocument({
+      assessmentId,
+      type: 'ANSWER_SHEET',
+      filename: 'a.pdf',
+      declaredMimeType: 'application/pdf',
+      data: makePdf([A4_PORTRAIT]),
+    });
+
+    // Everything up to grading runs normally; only the marking is refused.
+    fakeAI.configure({
+      candidates: QUESTIONS,
+      answerCandidates: ANSWERS,
+      gradingError: new Error('Groq rate limit exceeded.'),
+    });
+
+    const outcome = await runAssessmentPipeline({
+      assessmentId,
+      jobId: `p7-fail-${assessmentId}`,
+    });
+
+    const after = await getAssessment(assessmentId);
+
+    // The run finished rather than rolling back to FAILED.
+    expect(outcome.executedStages).toContain('GRADING');
+    expect(after.status).toBe('COMPLETED');
+
+    // The work the assignment actually depends on is all still there.
+    expect(after.questions.length).toBeGreaterThan(0);
+    expect(after.answers.length).toBeGreaterThan(0);
+    expect(after.mappings.length).toBeGreaterThan(0);
+
+    // And the failure is recorded against the answers, not silently dropped.
+    const failed = after.grades.filter((grade) => grade.isCurrent && grade.status === 'FAILED');
+
+    expect(failed.length).toBeGreaterThan(0);
+    expect(failed.every((grade) => grade.awardedMarks === null)).toBe(true);
+  });
+
   it('skips the grading stage when the job is replayed', async () => {
     const assessmentId = await seedAndRun();
     const before = await getAssessment(assessmentId);

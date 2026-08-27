@@ -21,8 +21,18 @@ import styles from './MappingScreen.module.css';
  * makes the two panes one screen rather than two lists side by side.
  */
 export function MappingScreen({ assessmentId }: { assessmentId: string }) {
-  const { questions, answers, mappings, grades, documents, loading, error, notFound, reload } =
-    useMappingData(assessmentId);
+  const {
+    questions,
+    answers,
+    mappings,
+    grades,
+    summary,
+    documents,
+    loading,
+    error,
+    notFound,
+    reload,
+  } = useMappingData(assessmentId);
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
@@ -81,6 +91,39 @@ export function MappingScreen({ assessmentId }: { assessmentId: string }) {
 
     return numbers;
   }, [questions]);
+
+  /*
+   * The paper as a whole.
+   *
+   * Every figure is counted from what the API returned, and the score is shown
+   * only when marks genuinely exist: a paper that prints no marks per question
+   * has no denominator, and a percentage invented for it would be the one
+   * number on the screen that means nothing. `availableMarks` is what was
+   * actually marked, not the whole paper, so it never reports a student who
+   * answered half the questions as having lost the other half.
+   */
+  const overview = useMemo(() => {
+    const marked = grades.filter(
+      (grade) => grade.awardedMarks !== null && grade.maximumMarks !== null,
+    );
+
+    const correct = marked.filter((g) => g.awardedMarks! >= g.maximumMarks!).length;
+    const incorrect = marked.filter((g) => g.awardedMarks! <= 0).length;
+
+    return {
+      questions: questions.length,
+      answered: answerByQuestionId.size,
+      unanswered: questions.length - answerByQuestionId.size,
+      unmatched: mappings.filter((m) => m.effectiveMapping.questionId === null).length,
+      correct,
+      partial: marked.length - correct - incorrect,
+      incorrect,
+      notGradeable: grades.filter((g) => g.status === 'NOT_GRADEABLE').length,
+      failed: grades.filter((g) => g.status === 'FAILED').length,
+      awardedMarks: summary?.awardedMarks ?? null,
+      availableMarks: summary?.availableMarks ?? null,
+    };
+  }, [questions, answerByQuestionId, mappings, grades, summary]);
 
   // A card opens if there is something to show: a mapped answer to highlight,
   // or grading feedback to read. "Expand All" reflects the same rule.
@@ -201,6 +244,38 @@ export function MappingScreen({ assessmentId }: { assessmentId: string }) {
             </button>
           </div>
 
+          <div className={styles.summary}>
+            <Stat label="Questions" value={overview.questions} />
+            <Stat label="Answered" value={overview.answered} />
+            <Stat label="Unanswered" value={overview.unanswered} />
+            <Stat label="Unmatched answers" value={overview.unmatched} />
+            <Stat label="Correct" value={overview.correct} />
+            <Stat label="Partial" value={overview.partial} />
+            <Stat label="Incorrect" value={overview.incorrect} />
+
+            {overview.availableMarks !== null && overview.availableMarks > 0 ? (
+              <span className={`${styles.summaryStat} ${styles.summaryScore}`}>
+                <span className={styles.summaryValue}>
+                  {overview.awardedMarks} / {overview.availableMarks}
+                </span>
+                <span>marks on the answers that were marked</span>
+              </span>
+            ) : (
+              <span className={styles.summaryNote}>
+                No score: this paper prints no marks to grade against.
+              </span>
+            )}
+
+            {overview.notGradeable + overview.failed > 0 ? (
+              <span className={styles.summaryNote}>
+                {overview.notGradeable > 0
+                  ? `${overview.notGradeable} answer(s) had nothing to grade against.`
+                  : ''}{' '}
+                {overview.failed > 0 ? `${overview.failed} could not be marked.` : ''}
+              </span>
+            ) : null}
+          </div>
+
           {questions.map((question, index) => (
             <QuestionCard
               key={question.id}
@@ -243,5 +318,15 @@ export function MappingScreen({ assessmentId }: { assessmentId: string }) {
         />
       </div>
     </div>
+  );
+}
+
+/** One count in the overall strip. */
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <span className={styles.summaryStat}>
+      <span className={styles.summaryValue}>{value}</span>
+      <span>{label}</span>
+    </span>
   );
 }

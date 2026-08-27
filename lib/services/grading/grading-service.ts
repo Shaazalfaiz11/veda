@@ -151,7 +151,35 @@ export async function gradeAssessment(context: GradingContext): Promise<GradingO
     }
 
     gradingCalls += 1;
-    fresh.push(await gradeOne(assessmentId, target, scheme, provider, log));
+
+    /*
+     * One answer's failure is one answer's failure.
+     *
+     * Letting it escape abandoned the whole stage, and with it every grade
+     * already computed in this loop — a single malformed recommendation, or
+     * one refused call, cost the marking of every other answer on the paper.
+     * The domain has always described that outcome per answer: FAILED is a
+     * grading status, `failed` is a line in the summary, and the reuse guard
+     * above deliberately declines to reuse a FAILED grade so a later run tries
+     * it again. Nothing produced one until now.
+     */
+    try {
+      fresh.push(await gradeOne(assessmentId, target, scheme, provider, log));
+    } catch (error) {
+      log.warn(
+        {
+          status: 'SKIPPED',
+          answerId: target.answerId,
+          questionId: target.questionId,
+          code: isAppError(error) ? error.code : 'UNKNOWN',
+          retryable: isAppError(error) ? error.retryable : true,
+          reason: error instanceof Error ? error.message : String(error),
+        },
+        'assessment.grading.answer_failed',
+      );
+
+      fresh.push(failedGrade(assessmentId, target, scheme, error));
+    }
   }
 
   // Previous grades are superseded, never deleted: a remap produces a new
@@ -460,6 +488,49 @@ function notGradeable(
     confidenceFactors: null,
     feedback: '',
     notGradeableReason: reason,
+    reviewReasons: [],
+    metadata: null,
+    isCurrent: true,
+    supersededReason: null,
+    createdAt: now(),
+  };
+}
+
+/**
+ * A grade that could not be produced, recorded rather than thrown.
+ *
+ * Distinct from NOT_GRADEABLE, and the distinction is the point:
+ * NOT_GRADEABLE means there was nothing to mark this answer against,
+ * which no retry will change. FAILED means there was, and the attempt did not
+ * survive — a refused call, or a recommendation whose arithmetic contradicted
+ * itself. Marks stay null either way, because a failed attempt has not scored
+ * the answer zero; it has not scored it at all.
+ *
+ * The reason is carried in `feedback` so it reaches the teacher through the
+ * API and the UI without a new field: they see why this one answer is
+ * unmarked instead of finding it silently absent.
+ */
+function failedGrade(
+  assessmentId: string,
+  target: GradingTarget,
+  scheme: MarkScheme,
+  error: unknown,
+): GradingResult {
+  const reason = error instanceof Error ? error.message : String(error);
+
+  return {
+    id: randomUUID(),
+    assessmentId,
+    questionId: target.questionId,
+    answerId: target.answerId,
+    status: 'FAILED',
+    awardedMarks: null,
+    maximumMarks: scheme.totalMarks,
+    criteria: [],
+    confidence: 0,
+    confidenceFactors: null,
+    feedback: `This answer could not be marked automatically: ${reason}`,
+    notGradeableReason: null,
     reviewReasons: [],
     metadata: null,
     isCurrent: true,

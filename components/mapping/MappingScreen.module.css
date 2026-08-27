@@ -213,3 +213,52 @@
     font-weight: 700;
   }
 }
+
+/*
+ * Overall result strip.
+ *
+ * Not in the Figma frames — the design has no results view — so it is built
+ * from the existing tokens and kept deliberately quiet: one row of counts
+ * above the list, in the same 16px rhythm as everything else in this pane, so
+ * it reads as a caption on the questions rather than a second design.
+ */
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-offwhite-20);
+}
+
+.summaryStat {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.4;
+  letter-spacing: -0.56px;
+  color: var(--text-secondary);
+}
+
+.summaryValue {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.64px;
+  color: var(--text-primary);
+}
+
+/* The score, when marks exist at all. Set apart because it is the one figure
+   a teacher looks for first. */
+.summaryScore .summaryValue {
+  color: var(--primary-orange);
+}
+
+/* Pushed to its own line so the counts stay on one row at 672px. */
+.summaryNote {
+  flex: 1 1 100%;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}

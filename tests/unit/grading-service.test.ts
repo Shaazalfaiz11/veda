@@ -12,7 +12,7 @@ const { InMemoryAssessmentStore, setAssessmentStore } = await import(
 );
 const { buildReviewQueue, rejectReview, remapReview } = await import('@/lib/services/review');
 const { FakeAIProvider } = await import('@/lib/providers/ai');
-const { ValidationError, DependencyUnavailableError } = await import('@/lib/errors');
+const { DependencyUnavailableError } = await import('@/lib/errors');
 const { logger } = await import('@/lib/logger');
 const { parseQuestionLabel } = await import('@/lib/domain/question');
 
@@ -125,6 +125,11 @@ async function seed(options: SeedOptions = {}): Promise<string> {
 
 function run(assessmentId: string, provider: Fake) {
   return gradeAssessment({ assessmentId, jobId: 'job-1', logger, provider });
+}
+
+/** The current grade for one answer, which is what a run is judged by. */
+function gradeFor(outcome: Awaited<ReturnType<typeof run>>, answerId: string) {
+  return outcome.grades.find((grade) => grade.answerId === answerId && grade.isCurrent)!;
 }
 
 /** A response that awards `awarded` on the single generated criterion. */
@@ -303,7 +308,11 @@ describe('what the model returns is checked, not trusted', () => {
       }),
     });
 
-    await expect(run(await seed(), provider)).rejects.toThrow(ValidationError);
+    const outcome = await run(await seed(), provider);
+
+    expect(gradeFor(outcome, 'a-1').status).toBe('FAILED');
+    expect(gradeFor(outcome, 'a-1').feedback).toMatch(/internally inconsistent/);
+    expect(gradeFor(outcome, 'a-1').awardedMarks).toBeNull();
   });
 
   it('rejects a criterion id that was never in the rubric', async () => {
@@ -317,23 +326,33 @@ describe('what the model returns is checked, not trusted', () => {
       },
     });
 
-    await expect(run(await seed(), provider)).rejects.toThrow(/not in the mark scheme/);
+    const outcome = await run(await seed(), provider);
+
+    expect(gradeFor(outcome, 'a-1').status).toBe('FAILED');
+    expect(gradeFor(outcome, 'a-1').feedback).toMatch(/not in the mark scheme/);
   });
 
   it('rejects marks above what the criterion is worth', async () => {
     const provider = new FakeAIProvider({ grading: award(9) });
 
-    await expect(run(await seed(), provider)).rejects.toThrow(/at most/);
+    const outcome = await run(await seed(), provider);
+
+    expect(gradeFor(outcome, 'a-1').status).toBe('FAILED');
+    expect(gradeFor(outcome, 'a-1').feedback).toMatch(/at most/);
   });
 
   it('does not silently cap an over-award', async () => {
     const provider = new FakeAIProvider({ grading: award(9) });
     const assessmentId = await seed();
 
-    await expect(run(assessmentId, provider)).rejects.toThrow();
+    await run(assessmentId, provider);
 
-    // No repaired grade was written in place of the rejected one.
-    expect((await getAssessment(assessmentId)).grades).toEqual([]);
+    // No repaired grade was written in place of the rejected one: the answer
+    // is unmarked, not marked down to the ceiling the model overshot.
+    for (const grade of (await getAssessment(assessmentId)).grades) {
+      expect(grade.status).toBe('FAILED');
+      expect(grade.awardedMarks).toBeNull();
+    }
   });
 
   it('rejects a response that leaves a criterion unjudged', async () => {
@@ -347,7 +366,10 @@ describe('what the model returns is checked, not trusted', () => {
       },
     });
 
-    await expect(run(await seed(), provider)).rejects.toThrow(/did not judge every criterion/);
+    const outcome = await run(await seed(), provider);
+
+    expect(gradeFor(outcome, 'a-1').status).toBe('FAILED');
+    expect(gradeFor(outcome, 'a-1').feedback).toMatch(/did not judge every criterion/);
   });
 
   it('rejects a criterion judged twice', async () => {
@@ -368,19 +390,45 @@ describe('what the model returns is checked, not trusted', () => {
       },
     });
 
-    await expect(run(await seed(), provider)).rejects.toThrow(/more than once/);
+    const outcome = await run(await seed(), provider);
+
+    expect(gradeFor(outcome, 'a-1').status).toBe('FAILED');
+    expect(gradeFor(outcome, 'a-1').feedback).toMatch(/more than once/);
   });
 
-  it('persists nothing when a response fails verification', async () => {
+  /*
+   * A rejected recommendation used to abandon the stage, taking every grade
+   * already computed on the paper with it. The rejection still stands -- no
+   * marks are written for the answer it came from -- but it is now that
+   * answer's outcome rather than the run's.
+   */
+  it('records the failure against the answer and still grades the rest', async () => {
     const assessmentId = await seed();
-    const provider = new FakeAIProvider({ grading: award(9) });
 
-    await expect(run(assessmentId, provider)).rejects.toThrow();
+    const provider = new FakeAIProvider({
+      grading: (request) =>
+        request.questionLabel === 'Q1'
+          ? {
+              criteria: [{ criterionId: 'invented', awardedMarks: 1, reason: 'made up' }],
+              totalAwardedMarks: 1,
+              confidence: 0.9,
+              feedback: 'Fine.',
+              usage: null,
+            }
+          : award(1)(request),
+    });
 
+    const outcome = await run(assessmentId, provider);
     const stored = await getAssessment(assessmentId);
 
-    expect(stored.grades).toEqual([]);
-    expect(stored.grading).toBeNull();
+    expect(gradeFor(outcome, 'a-1').status).toBe('FAILED');
+    expect(gradeFor(outcome, 'a-1').awardedMarks).toBeNull();
+
+    // The other answer was marked normally rather than lost with it.
+    expect(gradeFor(outcome, 'a-2').awardedMarks).toBe(1);
+
+    expect(stored.grading).not.toBeNull();
+    expect(stored.grades).toHaveLength(2);
   });
 
   it('derives each criterion outcome from the marks rather than the model’s claim', async () => {
@@ -394,14 +442,26 @@ describe('what the model returns is checked, not trusted', () => {
     expect(forQ1.awardedMarks).toBe(1);
   });
 
-  it('lets a provider failure surface rather than recording a zero', async () => {
+  it('records a provider failure rather than a zero', async () => {
     const assessmentId = await seed();
     const provider = new FakeAIProvider({
-      gradingError: new DependencyUnavailableError('Gemini is unavailable.'),
+      gradingError: new DependencyUnavailableError('Groq is unavailable.'),
     });
 
-    await expect(run(assessmentId, provider)).rejects.toThrow(DependencyUnavailableError);
-    expect((await getAssessment(assessmentId)).grades).toEqual([]);
+    const outcome = await run(assessmentId, provider);
+
+    for (const answerId of ['a-1', 'a-2']) {
+      const grade = gradeFor(outcome, answerId);
+
+      expect(grade.status).toBe('FAILED');
+      // The distinction the status exists to make: unmarked, not marked zero.
+      expect(grade.awardedMarks).toBeNull();
+      expect(grade.feedback).toMatch(/could not be marked automatically/);
+    }
+
+    // A FAILED grade is not reused, so a later run marks these answers again.
+    const stored = await getAssessment(assessmentId);
+    expect(stored.grades.every((g) => g.status === 'FAILED')).toBe(true);
   });
 });
 
@@ -565,14 +625,29 @@ describe('idempotency and history', () => {
       questionId: Q4,
     });
 
-    await expect(
-      run(
-        assessmentId,
-        new FakeAIProvider({ gradingError: new DependencyUnavailableError('down') }),
-      ),
-    ).rejects.toThrow(DependencyUnavailableError);
+    await run(
+      assessmentId,
+      new FakeAIProvider({ gradingError: new DependencyUnavailableError('down') }),
+    );
 
-    expect((await getAssessment(assessmentId)).grades).toEqual(before);
+    const after = (await getAssessment(assessmentId)).grades;
+
+    // The remapped answer is the only one re-graded, so it is the only one
+    // that can fail. Its old grade was made against the question the teacher
+    // overruled, so it is superseded rather than left standing as current --
+    // but it is kept, which is what makes the mark auditable.
+    const failed = after.find((g) => g.answerId === 'a-1' && g.isCurrent)!;
+    expect(failed.status).toBe('FAILED');
+    expect(failed.awardedMarks).toBeNull();
+
+    const superseded = after.find((g) => g.answerId === 'a-1' && !g.isCurrent)!;
+    expect(superseded).toBeDefined();
+    expect(superseded.awardedMarks).toBe(before.find((g) => g.answerId === 'a-1')!.awardedMarks);
+
+    // Every other answer kept the grade it already had.
+    for (const grade of before.filter((g) => g.answerId !== 'a-1')) {
+      expect(after).toContainEqual(grade);
+    }
   });
 });
 
