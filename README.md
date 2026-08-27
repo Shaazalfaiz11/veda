@@ -49,12 +49,49 @@ PREPARE → EXTRACT_QUESTIONS → EXTRACT_ANSWERS → MAP_ANSWERS → GRADE → 
 
 ```bash
 npm install
-cp .env.example .env.local
+cp .env.example .env.local   # then set GROQ_API_KEY
 
 npm run redis:up      # Redis via Docker (or point REDIS_URL at your own)
 npm run dev           # API on http://localhost:3000
 npm run dev:worker    # worker, in a second terminal
 ```
+
+Run **one** worker. Two workers on a free provider tier spend the same
+per-minute token budget twice and both get refused.
+
+## Walking through it
+
+Open `http://localhost:3000`, upload a question paper and a handwritten answer
+sheet, and the app routes itself through processing to the mapping screen. On a
+free Groq tier a 5-page pair takes **10-12 minutes**, nearly all of it the
+pacing between vision calls rather than the calls themselves.
+
+The mapping screen is where the assignment is demonstrated:
+
+- The left pane lists every extracted question, in the paper's own order and
+  under the paper's own numbering. Sub-parts are separate rows.
+- A question with nothing mapped to it says **No answer mapped**.
+- Clicking a question scrolls the answer sheet to the page its answer is on and
+  draws the answer's region over the handwriting, dimming the others. An answer
+  spanning two pages is drawn on both.
+- A region tagged **Unmapped** is student work that reached no question.
+
+### Building the demo fixtures
+
+The exam PDFs are not committed — they are third-party material, and
+`fixtures/` is gitignored. Two tools rebuild a matched pair from a source PDF:
+
+```bash
+# A printed 5-page question paper (CBSE Class X Maths Basic 2020).
+npx tsx tools/make-demo-question-paper.ts fixtures/demo-question-paper.pdf
+
+# Five pages of a handwritten answer sheet, from a larger scan.
+npx tsx tools/slice-pdf.ts <source.pdf> fixtures/demo-answer-sheet.pdf 5 1600 3
+```
+
+The pair must be **the same exam**. A question paper and an answer sheet from
+different papers produce an empty mapping, and the failure looks like a bug in
+the mapper rather than the mismatch it is.
 
 ## Scripts
 
@@ -70,6 +107,7 @@ npm run dev:worker    # worker, in a second terminal
 | `npm test` | Vitest (unit, API, integration) |
 | `npm run redis:up` / `redis:down` | Local Redis container |
 | `npm run smoke:grading` | Opt-in live grading run against real Gemini |
+| `npm run start:all` | Production web server and worker in one process (deployment) |
 
 ## API
 

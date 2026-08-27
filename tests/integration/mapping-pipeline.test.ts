@@ -287,7 +287,13 @@ describe.skipIf(!available)('MAPPING through the pipeline', () => {
     expect((await getAssessment(assessmentId)).mappings).toHaveLength(3);
   });
 
-  it('propagates a transient adjudication failure for the queue to retry', async () => {
+  /*
+   * The adjudicator is a second opinion on a shortlist the deterministic
+   * signals already built. On a metered tier it is also the call most likely
+   * to be refused, and failing the stage over it discarded a finished
+   * extraction on nearly every run. The pipeline finishes instead.
+   */
+  it('completes the mapping stage when the adjudicator is unavailable', async () => {
     const assessmentId = await seedAssessment();
     fakeAI.configure({
       candidates: QUESTIONS,
@@ -295,25 +301,28 @@ describe.skipIf(!available)('MAPPING through the pipeline', () => {
       adjudicationError: new DependencyUnavailableError('rate limited'),
     });
 
-    await expect(
-      runAssessmentPipeline({ assessmentId, jobId: 'p5-9' }),
-    ).rejects.toMatchObject({ code: 'DEPENDENCY_UNAVAILABLE', retryable: true });
+    const outcome = await runAssessmentPipeline({ assessmentId, jobId: 'p5-9' });
+
+    expect(outcome.executedStages).toContain('MAPPING');
 
     const stored = await getAssessment(assessmentId);
 
-    expect(stored.stage).toBe('MAPPING');
-    expect(stored.mappings).toEqual([]);
-    // Extraction still stands, so the retry will not redo it.
+    expect(stored.mappings).toHaveLength(3);
+    // Whichever pairs were actually put to the model record that it could not
+    // answer. A pair the signals already settled never asks, so it carries no
+    // such code — that is the shortlist doing its job, not a gap.
+    expect(stored.mappings.some((m) => m.reasonCodes.includes('LLM_UNAVAILABLE'))).toBe(true);
     expect(stored.questions).toHaveLength(3);
     expect(stored.answers).toHaveLength(3);
   });
 
   it('succeeds on retry without re-extracting', async () => {
     const assessmentId = await seedAssessment();
+    // Answer extraction is the failure point here: adjudication no longer
+    // fails a run, so it can no longer stand in for one.
     fakeAI.configure({
       candidates: QUESTIONS,
-      answerCandidates: ANSWERS,
-      adjudicationError: new DependencyUnavailableError('temporary outage'),
+      answerError: new DependencyUnavailableError('temporary outage'),
     });
 
     await expect(runAssessmentPipeline({ assessmentId, jobId: 'p5-10' })).rejects.toThrow();

@@ -20,8 +20,8 @@ export interface QuestionCardProps {
   grade: GradeItem | null;
   /** Whether the mapping gave this question an answer. */
   hasAnswer: boolean;
-  /** Position in the list, which is what the design's badge counts. */
-  index: number;
+  /** The number the paper prints for this question, already resolved. */
+  displayNumber: string;
   expanded: boolean;
   onToggle: () => void;
 }
@@ -30,13 +30,12 @@ export function QuestionCard({
   question,
   grade,
   hasAnswer,
-  index,
+  displayNumber,
   expanded,
   onToggle,
 }: QuestionCardProps) {
   // The design numbers a sub-question by its parent and shows the part letter
   // beneath, so 11 a and 11 b sit under one number.
-  const parentNumber = question.parentLabel?.replace(/\D/g, '');
   const part = question.isSubQuestion
     ? question.normalizedLabel.split('-').pop()
     : null;
@@ -61,7 +60,7 @@ export function QuestionCard({
         onClick={selectable ? onToggle : undefined}
       >
         <span className={`${styles.badge} ${expanded ? styles.badgeActive : ''}`}>
-          <span>{parentNumber ?? index + 1}</span>
+          <span>{displayNumber}</span>
           {part ? <span className={styles.badgePart}>{part}</span> : null}
         </span>
 

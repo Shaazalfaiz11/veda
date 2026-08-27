@@ -2,7 +2,7 @@
   "name": "veda-ai",
   "version": "0.1.0",
   "private": true,
-  "description": "AI Assessment Extraction & Answer Mapping — backend and queue foundation",
+  "description": "AI Assessment Extraction & Answer Mapping \u2014 backend and queue foundation",
   "scripts": {
     "dev": "next dev",
     "dev:worker": "tsx watch workers/assessment.worker.ts",
@@ -21,7 +21,8 @@
     "smoke:mapping": "tsx scripts/gemini-mapping-smoke.ts",
     "make:question-paper": "tsx scripts/make-question-paper.ts",
     "walkthrough:review": "tsx scripts/review-walkthrough.ts",
-    "smoke:grading": "tsx scripts/gemini-grading-smoke.ts"
+    "smoke:grading": "tsx scripts/gemini-grading-smoke.ts",
+    "start:all": "node scripts/start-production.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.19.0",

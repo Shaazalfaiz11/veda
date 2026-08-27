@@ -56,6 +56,32 @@ export function MappingScreen({ assessmentId }: { assessmentId: string }) {
     [documents],
   );
 
+  /*
+   * The number each card shows.
+   *
+   * It has to be the number the paper prints, not the row's position in the
+   * list. A paper that offers an alternative prints "OR" between two questions
+   * without numbering it, so counting rows drifts one ahead of the paper from
+   * that point on and every card below it names the wrong question. The label
+   * is the source; an unnumbered row borrows the number it sits under, which
+   * is exactly what the paper means by it.
+   */
+  const displayNumberByQuestionId = useMemo(() => {
+    const numbers = new Map<string, string>();
+    let lastPrinted = '';
+
+    questions.forEach((question, index) => {
+      const printed =
+        question.parentLabel?.replace(/\D/g, '') || question.labelRaw.match(/\d+/)?.[0] || '';
+
+      if (printed) lastPrinted = printed;
+
+      numbers.set(question.id, printed || lastPrinted || String(index + 1));
+    });
+
+    return numbers;
+  }, [questions]);
+
   // A card opens if there is something to show: a mapped answer to highlight,
   // or grading feedback to read. "Expand All" reflects the same rule.
   const expandableIds = useMemo(
@@ -181,7 +207,7 @@ export function MappingScreen({ assessmentId }: { assessmentId: string }) {
               question={question}
               grade={gradeByQuestionId.get(question.id) ?? null}
               hasAnswer={answerByQuestionId.has(question.id)}
-              index={index}
+              displayNumber={displayNumberByQuestionId.get(question.id) ?? String(index + 1)}
               expanded={expanded.has(question.id)}
               onToggle={() => toggle(question.id)}
             />

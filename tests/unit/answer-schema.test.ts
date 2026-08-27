@@ -167,7 +167,7 @@ describe('post-hoc response validation', () => {
 
 describe('extraction prompt', () => {
   it('is versioned so a change in output can be traced', () => {
-    expect(ANSWER_EXTRACTION_PROMPT_VERSION).toBe('answer-extraction/v2');
+    expect(ANSWER_EXTRACTION_PROMPT_VERSION).toBe('answer-extraction/v3');
   });
 
   it('states the page count and 1-based numbering', () => {

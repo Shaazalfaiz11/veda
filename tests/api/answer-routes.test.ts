@@ -276,7 +276,7 @@ describe('GET /api/assessments/:assessmentId/answers', () => {
     expect(body.extraction).toMatchObject({
       provider: 'fake',
       model: 'fake-model-v1',
-      promptVersion: 'answer-extraction/v2',
+      promptVersion: 'answer-extraction/v3',
       pagesProcessed: 2,
       answersExtracted: 2,
     });
