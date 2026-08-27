@@ -1,0 +1,80 @@
+# Render blueprint: the API and the worker, plus the Redis they share.
+#
+# One service runs both halves. They are separate concerns and would normally
+# be separate services, but they share the prepared page bitmaps on disk — the
+# worker writes them during PREPARING and the API reads them back to serve the
+# page the highlight overlay is drawn on. Split across two services each gets
+# its own disk and every page image 404s. See scripts/start-production.mjs.
+#
+# Deploy: push this file, then Render → New → Blueprint → pick the repo.
+# GROQ_API_KEY is marked sync:false, so Render prompts for it rather than
+# storing it here.
+
+services:
+  - type: web
+    name: veda-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter # 512MB free tier cannot hold onnxruntime and Next together
+    healthCheckPath: /api/health
+
+    disk:
+      name: veda-storage
+      mountPath: /app/.storage
+      sizeGB: 1
+
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+
+      - key: REDIS_URL
+        fromService:
+          name: veda-redis
+          type: redis
+          property: connectionString
+
+      # The Vercel deployment that is allowed to call this API. Set it to the
+      # frontend's exact origin once Vercel has assigned one.
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+
+      - key: AI_PROVIDER
+        value: groq
+      - key: EMBEDDING_PROVIDER
+        value: local
+      - key: GROQ_MODEL
+        value: qwen/qwen3.8-27b
+
+      # Pacing for an 8,000 TPM free tier. A page image costs ~2,100 tokens, so
+      # roughly one vision request per minute is what it admits.
+      - key: QUESTION_CHUNK_PAGES
+        value: '1'
+      - key: QUESTION_CHUNK_OVERLAP
+        value: '0'
+      - key: QUESTION_CHUNK_DELAY_MS
+        value: '55000'
+      - key: ANSWER_CHUNK_PAGES
+        value: '2'
+      - key: ANSWER_CHUNK_OVERLAP
+        value: '1'
+      - key: ANSWER_CHUNK_DELAY_MS
+        value: '55000'
+      - key: MAPPING_ADJUDICATION_DELAY_MS
+        value: '8000'
+      - key: GRADING_CALL_DELAY_MS
+        value: '6000'
+
+      - key: STORAGE_ROOT
+        value: /app/.storage
+      - key: LOG_LEVEL
+        value: info
+
+  # Redis is a service on Render, not a database entry.
+  - type: redis
+    name: veda-redis
+    plan: free
+    ipAllowList: [] # reachable only from inside the Render network
+    # BullMQ refuses to run against an evicting instance, and it is right to:
+    # a queue that drops jobs under memory pressure loses an assessment
+    # halfway through ten minutes of paid-for extraction.
+    maxmemoryPolicy: noeviction

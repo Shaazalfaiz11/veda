@@ -37,8 +37,21 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Where the API lives.
+ *
+ * Empty by default, which makes every path same-origin — the app served as
+ * one deployment, and local development, both work with no configuration.
+ * Set `NEXT_PUBLIC_API_BASE_URL` when the pages and the API are deployed
+ * separately, e.g. the UI on one host and the worker-backed API on another.
+ * Inlined at build time, so it must be set on the frontend build.
+ */
+export function apiBase(): string {
+  return (process.env.NEXT_PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(`${apiBase()}${path}`, {
     ...init,
     headers: {
       Accept: 'application/json',
@@ -173,5 +186,7 @@ export function pageImageUrl(
   documentId: string,
   pageNumber: number,
 ): string {
-  return `/api/assessments/${assessmentId}/documents/${documentId}/pages/${pageNumber}`;
+  // Goes through the same base: the page bitmap is what the highlight overlay
+  // is drawn on, so it has to come from wherever the API actually is.
+  return `${apiBase()}/api/assessments/${assessmentId}/documents/${documentId}/pages/${pageNumber}`;
 }

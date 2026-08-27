@@ -98,6 +98,82 @@ Scheduling was measured against this and made it worse; see
 `lib/providers/ai/groq/rate-limiter.ts` for what was tried and why the plain
 pacing stayed.
 
+## Deploying
+
+The app is one Next.js codebase containing both the pages and the API, plus a
+worker process. **The worker and the API must stay together**: the worker
+writes the prepared page bitmaps to disk during `PREPARING`, and the API reads
+them back to serve the page the highlight overlay is drawn on. Separate them
+and every page image 404s.
+
+So the split is pages ↔ (API + worker), not frontend ↔ backend in the usual
+sense. Both halves are the same repository, deployed twice.
+
+### 1. Backend — Render
+
+`render.yaml` declares the web service, a 1GB disk at `/app/.storage`, and the
+Redis the queue runs on.
+
+1. Render → **New** → **Blueprint** → pick this repository.
+2. It prompts for the two secrets marked `sync: false`:
+   - `GROQ_API_KEY` — from [console.groq.com/keys](https://console.groq.com/keys)
+   - `CORS_ALLOWED_ORIGINS` — leave blank for now; step 3 supplies it.
+3. Deploy. First build takes a while: the image bakes the ~90MB embedding
+   model in so the first request does not have to download it.
+4. Check `https://<your-service>.onrender.com/api/health` returns
+   `{"status":"ok","redis":"up"}`.
+
+The service runs `scripts/start-production.mjs`, which starts the web server
+and the worker in one process tree and fails them together, so a restart brings
+both back.
+
+> The **Starter** plan is deliberate. The 512MB free tier cannot hold
+> onnxruntime and Next at once, and the free tier also sleeps — a sleeping
+> instance drops a ten-minute job halfway through.
+
+### 2. Frontend — Vercel
+
+1. Vercel → **Add New** → **Project** → import this repository.
+2. Framework preset **Next.js**, defaults otherwise.
+3. Add one environment variable, for **all** environments:
+
+   ```
+   NEXT_PUBLIC_API_BASE_URL = https://<your-service>.onrender.com
+   ```
+
+   It is inlined at build time, so it must be set *before* the build. Changing
+   it later needs a redeploy, not just a restart.
+4. Deploy, and note the assigned URL.
+
+### 3. Close the loop
+
+Set `CORS_ALLOWED_ORIGINS` on the Render service to the exact Vercel origin —
+no trailing slash, e.g. `https://veda.vercel.app` — and redeploy Render.
+
+Without this the browser blocks every call and the UI sits on "Loading the
+mapping…". The allowlist takes exact origins rather than `*` on purpose: this
+API accepts uploads and returns a student's work.
+
+To verify end to end, upload a pair and watch the network tab — the requests
+should go to the Render origin, and the page bitmaps under
+`/api/assessments/.../pages/N` should return `200 image/png`.
+
+### Deploying as one service instead
+
+Simpler, and what the architecture actually wants: deploy only to Render and
+leave `NEXT_PUBLIC_API_BASE_URL` and `CORS_ALLOWED_ORIGINS` unset. Everything
+is same-origin, there is no CORS, and there is one deployment to keep in step.
+The Vercel half exists because a separate frontend host was asked for, not
+because the app needs it.
+
+> Vercel builds the whole repository, so the API routes are deployed there too.
+> They have no Redis, no worker and no disk behind them, and the UI never calls
+> them — `NEXT_PUBLIC_API_BASE_URL` points every request at Render. They are
+> dead weight, not a second backend.
+
+**Vercel alone will not work.** No persistent disk, no long-running worker, and
+a 10-minute pipeline against a serverless function timeout.
+
 ## Known limitations
 
 Worth stating plainly rather than discovering in a demo:

@@ -132,6 +132,14 @@ const EnvSchema = z.object({
   // Groq (server/worker only — never exposed to the browser)
   // ---------------------------------------------------------------------
   /** Which provider serves generation and vision. Gemini stays selectable. */
+  /**
+   * Origins allowed to call the API cross-origin, comma-separated.
+   *
+   * Empty means same-origin only, which is correct for a single deployment.
+   * Set it when the UI is hosted separately from the API.
+   */
+  CORS_ALLOWED_ORIGINS: z.string().default(''),
+
   AI_PROVIDER: z.enum(['gemini', 'groq']).default('gemini'),
 
   GROQ_API_KEY: z
