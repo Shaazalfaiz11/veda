@@ -1,0 +1,32 @@
+# The build installs its own dependencies before copying the source. Without
+# this, `COPY . .` would drop the host's node_modules on top of them — and on
+# a Windows machine that means Windows-native sharp, canvas and onnxruntime
+# binaries landing in a Linux image, which fails at runtime rather than at
+# build time.
+node_modules
+
+# Built by the image itself. Copying a host build in first only risks a stale
+# or platform-specific one being served.
+.next
+out
+tsconfig.tsbuildinfo
+
+# Uploads and prepared page bitmaps belong on the mounted volume, not baked
+# into the image.
+.storage
+
+# Real credentials. The platform supplies these as environment variables;
+# .env.example is the only one that ships.
+.env
+.env.local
+.env.*.local
+
+# Local noise.
+.git
+.gitignore
+.logs
+*.log
+coverage
+
+# Third-party exam PDFs used for the local demo.
+fixtures

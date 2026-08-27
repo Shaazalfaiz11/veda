@@ -34,10 +34,15 @@ COPY . .
 
 RUN npm run build
 
-# Warm the embedding cache at build time. It is a network fetch, so it is
-# allowed to fail — the runtime download path still exists as the fallback.
-RUN node --import tsx -e "import('./lib/providers/embeddings/local-embedding-provider.ts').then(m => m.LocalEmbeddingProvider ? new m.LocalEmbeddingProvider().embed(['warm']) : null)" \
-  || echo "embedding warm-up skipped; the model will download on first use"
+# Warm the embedding cache at build time. Loaded straight from the library
+# rather than through the provider module: the provider imports via the "@/"
+# path alias, which resolves under Next and the test runner but not under a
+# bare node process, so that form failed silently and shipped an image with no
+# weights in it. This pulls the same files into HF_HOME.
+#
+# It is a network fetch, so it is still allowed to fail - the runtime download
+# path remains the fallback, at the cost of a slow first request.
+RUN node -e "import('@huggingface/transformers').then(m => m.pipeline('feature-extraction','Xenova/all-MiniLM-L6-v2'))"   || echo "embedding warm-up skipped; the model will download on first use"
 
 # Where uploads and prepared pages live. Mount a persistent volume here, or
 # every restart loses the assessments already processed.
