@@ -114,15 +114,29 @@ export function ProcessingScreen({ assessmentId }: { assessmentId: string }) {
   if (status?.status === 'FAILED') {
     const failedStage = status.failure?.stage;
 
+    /*
+     * A NOT_FOUND here means the stored bytes this run needs are gone, not
+     * that something went wrong reading them. Nothing in the pipeline
+     * recreates an upload, so retrying re-queues a job that must fail the
+     * same way — the button was a dead end that reported a storage key at
+     * someone who can only fix it by uploading again. Say that instead, and
+     * offer the action that actually works.
+     */
+    const uploadsLost = status.failure?.code === 'NOT_FOUND';
+
     return (
       <div className={styles.screen}>
         <Glows />
         <div className={styles.failure}>
           <FailureMark />
           <div className={styles.failureText}>
-            <p className={styles.failureTitle}>Processing failed</p>
+            <p className={styles.failureTitle}>
+              {uploadsLost ? 'Uploads are no longer available' : 'Processing failed'}
+            </p>
             <p className={styles.failureMessage}>
-              {status.failure?.message ?? 'The run stopped before it finished.'}
+              {uploadsLost
+                ? 'The server restarted before this assessment finished, and restarts clear uploaded files. Upload the question paper and answer sheet again to start a fresh run.'
+                : (status.failure?.message ?? 'The run stopped before it finished.')}
             </p>
             {failedStage ? (
               <p className={styles.failureStage}>
@@ -131,12 +145,22 @@ export function ProcessingScreen({ assessmentId }: { assessmentId: string }) {
             ) : null}
           </div>
           <div className={styles.actions}>
-            <button type="button" className={styles.secondary} onClick={() => router.push('/')}>
-              Back to upload
-            </button>
-            <PrimaryButton onClick={handleRetry} busy={retrying}>
-              Try again
-            </PrimaryButton>
+            {uploadsLost ? (
+              <PrimaryButton onClick={() => router.push('/')}>Upload again</PrimaryButton>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className={styles.secondary}
+                  onClick={() => router.push('/')}
+                >
+                  Back to upload
+                </button>
+                <PrimaryButton onClick={handleRetry} busy={retrying}>
+                  Try again
+                </PrimaryButton>
+              </>
+            )}
           </div>
           {retryError ? <p className={styles.notice}>{retryError}</p> : null}
         </div>
