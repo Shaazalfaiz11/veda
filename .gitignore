@@ -13,6 +13,9 @@ next-env.d.ts
 .DS_Store
 *.log
 .storage/
-fixtures/
+# Third-party exam PDFs for the local demo. Anchored to the root: unanchored,
+# it also swallowed tests/fixtures/, whose two TypeScript helpers are source
+# the test suite and the scripts import.
+/fixtures/
 
 .logs/
