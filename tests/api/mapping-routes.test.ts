@@ -17,6 +17,7 @@ const { FakeAIProvider } = await import('@/lib/providers/ai');
 const { FakeEmbeddingProvider } = await import('@/lib/providers/embeddings');
 const { logger } = await import('@/lib/logger');
 const { parseQuestionLabel } = await import('@/lib/domain/question');
+const { resetEnvCache } = await import('@/lib/config');
 
 import type { Question } from '@/lib/domain/question';
 import type { Answer } from '@/lib/domain/answer';
@@ -179,7 +180,24 @@ describe('GET /api/assessments/:assessmentId/mappings', () => {
   });
 
   it('returns what the adjudicator said, separately from our own score', async () => {
-    const assessmentId = await seedAndMap();
+    /*
+     * This is about what the route reports once an adjudication exists, not
+     * about when one is sought. The shared fixture is decisive enough that the
+     * mapping stage now answers it without a call, so the margin floor is
+     * raised to require one -- the documented way to say "consult on
+     * everything".
+     */
+    process.env.MAPPING_DECISIVE_MARGIN_MIN = '1';
+    resetEnvCache();
+
+    let assessmentId: string;
+    try {
+      assessmentId = await seedAndMap();
+    } finally {
+      delete process.env.MAPPING_DECISIVE_MARGIN_MIN;
+      resetEnvCache();
+    }
+
     const body = await (
       await mappingsRoute(new Request('http://localhost'), ctx(assessmentId))
     ).json();

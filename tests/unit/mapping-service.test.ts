@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/queue/queues', () => ({
   enqueueAssessmentProcessing: vi.fn().mockResolvedValue({ id: 'job' }),
@@ -16,6 +16,7 @@ const { ConflictError, DependencyUnavailableError, ValidationError } = await imp
   '@/lib/errors'
 );
 const { logger } = await import('@/lib/logger');
+const { resetEnvCache } = await import('@/lib/config');
 const { parseQuestionLabel } = await import('@/lib/domain/question');
 
 import type { Question } from '@/lib/domain/question';
@@ -260,7 +261,99 @@ describe('candidate generation', () => {
   });
 });
 
+describe('skipping adjudication', () => {
+  /*
+   * The adjudicator exists to break ties. Asking it about an answer whose
+   * label names exactly one question, with nothing else near it, spends a
+   * request and a slice of a rate limit on a conclusion already reached --
+   * measured at five such calls per run, each paced eight seconds apart.
+   *
+   * The danger is skipping one that only looks decisive, so these pin both
+   * sides: what may be skipped, and what may never be.
+   */
+
+  it('does not adjudicate when the label names one question and nothing is close', async () => {
+    const assessmentId = await seed(
+      [PHOTOSYNTHESIS, HEART],
+      [answer('a-1', 'Q1', CHLOROPLAST_ANSWER)],
+    );
+
+    const provider = new FakeAIProvider();
+    const { mappings } = await run(assessmentId, provider, semanticEmbeddings());
+
+    expect(provider.adjudicateCalls).toBe(0);
+    expect(mappings[0]!.questionId).toBe('q-1');
+    expect(mappings[0]!.reasonCodes).toContain('DIRECT_LABEL_MATCH');
+  });
+
+  it('still adjudicates when the content belongs to another question', async () => {
+    // The student wrote "Q1" over an answer about the heart. Semantics lift
+    // q-2 toward the labelled q-1 and the margin collapses -- precisely the
+    // case the gate must not swallow.
+    const assessmentId = await seed(
+      [PHOTOSYNTHESIS, HEART],
+      [answer('a-1', 'Q1', HEART_ANSWER)],
+    );
+
+    const provider = new FakeAIProvider();
+    await run(assessmentId, provider, semanticEmbeddings());
+
+    expect(provider.adjudicateCalls).toBeGreaterThan(0);
+  });
+
+  it('still adjudicates when a second question could carry the same label', async () => {
+    // Two sub-parts both answer to a bare "(a)": a tie by definition, however
+    // far apart the remaining signals place them.
+    const assessmentId = await seed(
+      [question('q-1', 'Q1(a)', 'State one use of a catalyst.'), question('q-2', 'Q2(a)', 'State one property of a gas.')],
+      [answer('a-1', '(a)', 'A catalyst speeds up a reaction.')],
+    );
+
+    const provider = new FakeAIProvider();
+    await run(assessmentId, provider, semanticEmbeddings());
+
+    expect(provider.adjudicateCalls).toBeGreaterThan(0);
+  });
+
+  it('adjudicates everything when the margin floor is raised to 1', async () => {
+    process.env.MAPPING_DECISIVE_MARGIN_MIN = '1';
+    resetEnvCache();
+
+    try {
+      const assessmentId = await seed(
+        [PHOTOSYNTHESIS, HEART],
+        [answer('a-1', 'Q1', CHLOROPLAST_ANSWER)],
+      );
+
+      const provider = new FakeAIProvider();
+      await run(assessmentId, provider, semanticEmbeddings());
+
+      expect(provider.adjudicateCalls).toBeGreaterThan(0);
+    } finally {
+      delete process.env.MAPPING_DECISIVE_MARGIN_MIN;
+      resetEnvCache();
+    }
+  });
+});
+
 describe('adjudication', () => {
+  /*
+   * These cover what the adjudicator does once it is asked, not when it is
+   * asked -- and several of their fixtures are decisive enough that the gate
+   * would now answer them without a call. The margin floor is raised to 1 so
+   * every pair reaches the adjudicator, which is the documented way to say
+   * "consult on everything" and keeps each test pinned to its own subject.
+   */
+  beforeEach(() => {
+    process.env.MAPPING_DECISIVE_MARGIN_MIN = '1';
+    resetEnvCache();
+  });
+
+  afterEach(() => {
+    delete process.env.MAPPING_DECISIVE_MARGIN_MIN;
+    resetEnvCache();
+  });
+
   it('sends only the shortlist, never the whole paper', async () => {
     const questions = Array.from({ length: 12 }, (_, index) =>
       question(`q-${index}`, `Q${index + 1}`, `Question number ${index + 1} about biology.`),

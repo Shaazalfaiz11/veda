@@ -277,7 +277,30 @@ const EnvSchema = z.object({
    * competes for the same rate limit as the ambiguous cases that need it.
    * Set to 1 to adjudicate everything.
    */
-  MAPPING_SKIP_ADJUDICATION_ABOVE: z.coerce.number().min(0).max(1).default(0.93),
+  MAPPING_SKIP_ADJUDICATION_ABOVE: z.coerce.number().min(0).max(1).default(0.6),
+
+  /**
+   * How far ahead of the runner-up a decisive candidate must be.
+   *
+   * The absolute score alone cannot carry this decision. `candidateScore` is a
+   * weighted mean over label, semantics, position and structure, so an answer
+   * whose written label is exactly right still scores around 0.67-0.81 once
+   * the other three signals pull the mean down -- measured across three runs,
+   * eleven mappings, two papers. The old 0.93 default sat above everything
+   * that scoring function can produce for a real paper, which left the skip
+   * unreachable and every mapping paying for an adjudication.
+   *
+   * The margin is what actually separates the safe case from the dangerous
+   * one. When the label is right and nothing else comes close -- the observed
+   * margins were 0.476 to 0.634 -- there is no tie to break. When the student
+   * wrote "3." over content that answers question 4, the semantic signal lifts
+   * question 4 toward the labelled one and the margin collapses, which is
+   * exactly when the adjudicator should be asked.
+   *
+   * 0.35 sits below every decisive margin measured and well above where a
+   * contested pair lands. Set to 1 to require adjudication on everything.
+   */
+  MAPPING_DECISIVE_MARGIN_MIN: z.coerce.number().min(0).max(1).default(0.35),
 
   /**
    * Pause between adjudication calls, for rate-limited tiers.

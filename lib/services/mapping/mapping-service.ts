@@ -141,7 +141,7 @@ export async function mapAnswersToQuestions(
   for (const set of candidateSets) {
     const answer = answers.find((entry) => entry.id === set.answerId)!;
 
-    if (isDecisive(set, env.MAPPING_SKIP_ADJUDICATION_ABOVE)) {
+    if (isDecisive(set, env.MAPPING_SKIP_ADJUDICATION_ABOVE, env.MAPPING_DECISIVE_MARGIN_MIN)) {
       skipped.add(set.answerId);
       adjudications.set(set.answerId, null);
       log.debug(
@@ -535,7 +535,7 @@ function assignGlobally(
  * limit — on a conclusion already reached, while genuinely ambiguous answers
  * queue behind it.
  */
-function isDecisive(set: CandidateSet, threshold: number): boolean {
+function isDecisive(set: CandidateSet, threshold: number, marginMin: number): boolean {
   const best = set.candidates[0];
   if (!best) return false;
 
@@ -543,7 +543,27 @@ function isDecisive(set: CandidateSet, threshold: number): boolean {
     best.signals.labelKind === 'EXACT_NORMALIZED_LABEL' ||
     best.signals.labelKind === 'EXACT_PARENT_AND_SUBQUESTION';
 
-  return exactLabel && best.candidateScore >= threshold;
+  if (!exactLabel || best.candidateScore < threshold) return false;
+
+  const runnerUp = set.candidates[1];
+
+  /*
+   * Two questions the written label could name is a tie by definition, however
+   * far apart the other signals put them. Duplicated or ambiguous labels are
+   * the adjudicator's job, not arithmetic's.
+   */
+  if (runnerUp && runnerUp.signals.label > 0) return false;
+
+  /*
+   * The margin is the real test. An answer whose content belongs to a question
+   * other than the one written on it lifts that question on semantics, and the
+   * gap closes; a genuinely decisive match leaves the field far behind.
+   *
+   * With no runner-up the gap is measured against nothing, which keeps the
+   * floor meaningful rather than short-circuiting past it -- a margin of 1
+   * still means "consult on everything", including the single-candidate case.
+   */
+  return best.candidateScore - (runnerUp?.candidateScore ?? 0) >= marginMin;
 }
 
 function delay(milliseconds: number): Promise<void> {
