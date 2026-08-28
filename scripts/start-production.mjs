@@ -65,38 +65,33 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 }
 
 /*
- * Heap ceilings, because V8 will not infer them.
+ * Heap ceilings: off unless asked for.
  *
- * `--max-old-space-size` defaults to a figure derived from the *host's*
- * memory, not the container's cgroup limit — on this 512MB instance V8 reports
- * a ~2GB ceiling and therefore feels no pressure to collect until long after
- * the cgroup has started thrashing. Measured, that is exactly what happened:
- * resident memory climbed to 534MB during answer extraction and stayed pinned
- * there, the event loop stalled, and the queue declared the job lost.
+ * The theory was that V8 sizes its default from the host's memory rather than
+ * the cgroup — it reports a ~2GB ceiling on this 512MB instance — and so felt
+ * no pressure to collect until the container was already thrashing. Bounding
+ * it looked free.
  *
- * Giving each half an explicit ceiling makes V8 collect while there is still
- * room to. These are guards, not targets: a ceiling only does work as the heap
- * approaches it, so if the real cost turns out to be native rather than heap
- * these numbers will change nothing and the per-chunk loading is what earns
- * the saving. Buffers, libvips and onnxruntime all allocate outside this bound.
+ * It was not. A 192MB worker ceiling turned a survivable stall into a fatal
+ * one: preparation alone wants more heap than that, and V8 spent 79% of its
+ * time collecting (average mu 0.213) before aborting outright with SIGABRT.
+ * Because the two halves are wired to die together, that took the web server
+ * with it, and the restart wiped the ephemeral disk holding the uploads the
+ * requeued job then could not find.
  *
- * The web server gets the larger share despite doing the lighter work. It is
- * the half a visitor talks to, and the two die together by design — so a hard
- * heap exit there takes the site down, while the worker's would only lose the
- * job it holds. The worker's own heap demand is modest anyway: base64 strings
- * and one request body. Its expensive tenants are native and unbounded by this.
+ * A hard exit is worse than slow GC. The default stands unless a measurement
+ * justifies a number, and the levers stay here for when one does.
  */
-const workerHeapMb = process.env.WORKER_HEAP_MB ?? '192';
-const webHeapMb = process.env.WEB_HEAP_MB ?? '160';
+const heapFlags = (mb) => (mb ? [`--max-old-space-size=${mb}`] : []);
 
 run('worker', 'node', [
-  `--max-old-space-size=${workerHeapMb}`,
+  ...heapFlags(process.env.WORKER_HEAP_MB),
   '--import',
   'tsx',
   'workers/assessment.worker.ts',
 ]);
 run('web', 'node', [
-  `--max-old-space-size=${webHeapMb}`,
+  ...heapFlags(process.env.WEB_HEAP_MB),
   'node_modules/next/dist/bin/next',
   'start',
 ]);
