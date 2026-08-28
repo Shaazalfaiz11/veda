@@ -19,3 +19,5 @@ next-env.d.ts
 /fixtures/
 
 .logs/
+
+.vercel
