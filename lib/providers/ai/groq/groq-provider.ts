@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+import sharp from '@/lib/config/sharp-runtime';
 import { getEnv } from '@/lib/config';
 import {
   DependencyUnavailableError,
@@ -294,15 +294,16 @@ export class GroqProvider implements AIProvider {
    * re-encoded, which would cost time and a generation of quality for nothing.
    */
   private async forRequest(page: PageImage): Promise<string> {
-    const source = Buffer.from(page.data, 'base64');
     const longestEdge = Math.max(page.width, page.height);
 
+    // Decode only on the path that resizes. Decoding first cost a full-size
+    // buffer even for a page that was about to be passed through untouched.
     if (longestEdge > 0 && longestEdge <= this.imageMaxDimension) {
       return `data:${page.mimeType};base64,${page.data}`;
     }
 
     try {
-      const resized = await sharp(source)
+      const resized = await sharp(Buffer.from(page.data, 'base64'))
         .resize({
           width: this.imageMaxDimension,
           height: this.imageMaxDimension,

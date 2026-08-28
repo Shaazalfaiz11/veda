@@ -1,5 +1,5 @@
 import type { Logger } from 'pino';
-import sharp from 'sharp';
+import sharp from '@/lib/config/sharp-runtime';
 import { getEnv } from '@/lib/config';
 import {
   DocumentProcessingFailedError,

@@ -95,7 +95,8 @@ export async function extractQuestions(
     };
   }
 
-  const pages = await loadPageImages(document);
+  const pageNumbers = orderedPageNumbers(document);
+  const loadImages = makePageImageLoader(document);
   const env = getEnv();
 
   /*
@@ -108,15 +109,15 @@ export async function extractQuestions(
    *
    * A paper that already fits one chunk takes a single call, as before.
    */
-  const chunks = planChunks(
-    pages.map((page) => page.pageNumber),
-    { chunkPages: env.QUESTION_CHUNK_PAGES, overlap: env.QUESTION_CHUNK_OVERLAP },
-  );
+  const chunks = planChunks(pageNumbers, {
+    chunkPages: env.QUESTION_CHUNK_PAGES,
+    overlap: env.QUESTION_CHUNK_OVERLAP,
+  });
 
   log.info(
     {
       status: 'STARTED',
-      pageCount: pages.length,
+      pageCount: pageNumbers.length,
       chunkCount: chunks.length,
       chunkPages: env.QUESTION_CHUNK_PAGES,
       chunkOverlap: env.QUESTION_CHUNK_OVERLAP,
@@ -125,7 +126,6 @@ export async function extractQuestions(
   );
 
   const started = Date.now();
-  const byPageNumber = new Map(pages.map((page) => [page.pageNumber, page]));
   const entries: ChunkQuestion[] = [];
   let rawCandidateCount = 0;
   let promptTokens = 0;
@@ -137,9 +137,9 @@ export async function extractQuestions(
       await delay(env.QUESTION_CHUNK_DELAY_MS);
     }
 
-    const images = chunk.pageNumbers
-      .map((pageNumber) => byPageNumber.get(pageNumber))
-      .filter((page): page is PageImage => page !== undefined);
+    // Loaded per chunk rather than per document, so the previous chunk's
+    // base64 is collectable rather than resident for the whole run.
+    const images = await loadImages(chunk.pageNumbers);
 
     let chunkResult: Awaited<ReturnType<AIProvider['extractQuestions']>> | null = null;
     let lastError: unknown = null;
@@ -187,7 +187,7 @@ export async function extractQuestions(
       log.error(
         {
           status: 'FAILED',
-          pageCount: pages.length,
+          pageCount: pageNumbers.length,
           chunkIndex: chunk.index,
           chunkPages: `${chunk.pageNumbers[0]}-${chunk.pageNumbers[chunk.pageNumbers.length - 1]}`,
           code: isAppError(error) ? error.code : 'UNKNOWN',
@@ -250,7 +250,7 @@ export async function extractQuestions(
     model: provider.model,
     promptVersion: QUESTION_EXTRACTION_PROMPT_VERSION,
     extractedAt: now(),
-    pagesProcessed: pages.length,
+    pagesProcessed: pageNumbers.length,
     questionsExtracted: validation.questions.length,
     candidatesReceived: result.candidates.length,
     candidatesRejected: validation.rejectedCount,
@@ -282,7 +282,7 @@ export async function extractQuestions(
   log.info(
     {
       status: 'COMPLETED',
-      pageCount: pages.length,
+      pageCount: pageNumbers.length,
       questionCount: validation.questions.length,
       candidatesReceived: result.candidates.length,
       candidatesRejected: validation.rejectedCount,
@@ -382,35 +382,53 @@ function assertPrepared(document: AssessmentDocument): void {
   }
 }
 
+/** The document's prepared pages, in reading order. No bitmaps are read. */
+function orderedPageNumbers(document: AssessmentDocument): number[] {
+  return [...document.pages]
+    .sort((a, b) => a.pageNumber - b.pageNumber)
+    .map((page) => page.pageNumber);
+}
+
+type PageImageLoader = (pageNumbers: readonly number[]) => Promise<PageImage[]>;
+
 /**
- * Loads canonical page bitmaps.
+ * Reads canonical page bitmaps on demand.
  *
  * These are exactly the bitmaps Phase 2 wrote — the same pixels the teacher
  * will see and that normalized coordinates are measured against. Base64 is
  * built here, at the provider boundary, and never enters a log line, an API
  * response or Redis.
+ *
+ * One chunk's worth at a time. Reading the whole paper up front held every
+ * page's base64 for the entire run, to serve one chunk at a time; asking for
+ * only the pages a chunk covers lets the rest stay on disk where they are.
  */
-async function loadPageImages(document: AssessmentDocument): Promise<PageImage[]> {
-  const storage = getDocumentStorage();
-  const pages = [...document.pages].sort((a, b) => a.pageNumber - b.pageNumber);
+function makePageImageLoader(document: AssessmentDocument): PageImageLoader {
+  const byPageNumber = new Map(document.pages.map((page) => [page.pageNumber, page]));
 
-  const images: PageImage[] = [];
+  return async (pageNumbers) => {
+    const storage = getDocumentStorage();
+    const images: PageImage[] = [];
 
-  // Sequential: a long document loaded in parallel would hold every bitmap
-  // in memory at once for no wall-clock gain.
-  for (const page of pages) {
-    const data = await storage.get(page.storageKey);
+    // Sequential: loading a chunk's pages in parallel would hold each one's
+    // buffer and its base64 at the same time for no wall-clock gain.
+    for (const pageNumber of pageNumbers) {
+      const page = byPageNumber.get(pageNumber);
+      if (!page) continue;
 
-    images.push({
-      pageNumber: page.pageNumber,
-      data: data.toString('base64'),
-      mimeType: page.mimeType,
-      width: page.width,
-      height: page.height,
-    });
-  }
+      const data = await storage.get(page.storageKey);
 
-  return images;
+      images.push({
+        pageNumber: page.pageNumber,
+        data: data.toString('base64'),
+        mimeType: page.mimeType,
+        width: page.width,
+        height: page.height,
+      });
+    }
+
+    return images;
+  };
 }
 
 async function persist(

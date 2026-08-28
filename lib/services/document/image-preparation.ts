@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+import sharp from '@/lib/config/sharp-runtime';
 import { InvalidDocumentError } from '@/lib/errors';
 import type { RenderedPage } from './pdf-preparation';
 

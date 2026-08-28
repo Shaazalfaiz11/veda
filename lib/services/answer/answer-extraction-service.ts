@@ -109,16 +109,17 @@ export async function extractAnswers(
     };
   }
 
-  const pages = await loadPageImages(document);
-  const chunks = planChunks(
-    pages.map((page) => page.pageNumber),
-    { chunkPages: env.ANSWER_CHUNK_PAGES, overlap: env.ANSWER_CHUNK_OVERLAP },
-  );
+  const pageNumbers = orderedPageNumbers(document);
+  const loadImages = makePageImageLoader(document);
+  const chunks = planChunks(pageNumbers, {
+    chunkPages: env.ANSWER_CHUNK_PAGES,
+    overlap: env.ANSWER_CHUNK_OVERLAP,
+  });
 
   log.info(
     {
       status: 'STARTED',
-      pageCount: pages.length,
+      pageCount: pageNumbers.length,
       chunkCount: chunks.length,
       chunkPages: env.ANSWER_CHUNK_PAGES,
       chunkOverlap: env.ANSWER_CHUNK_OVERLAP,
@@ -127,7 +128,7 @@ export async function extractAnswers(
   );
 
   const started = Date.now();
-  const run = await readChunks({ chunks, pages, provider, log, env });
+  const run = await readChunks({ chunks, loadImages, provider, log, env });
 
   // Nothing at all was read. That is the whole-document failure the queue
   // should retry, so the chunk error is rethrown rather than reported as an
@@ -136,7 +137,7 @@ export async function extractAnswers(
     log.error(
       {
         status: 'FAILED',
-        pageCount: pages.length,
+        pageCount: pageNumbers.length,
         chunkCount: chunks.length,
         failedChunks: run.failures.length,
       },
@@ -171,7 +172,7 @@ export async function extractAnswers(
     model: provider.model,
     promptVersion: ANSWER_EXTRACTION_PROMPT_VERSION,
     extractedAt: now(),
-    pagesProcessed: pages.length,
+    pagesProcessed: pageNumbers.length,
     answersExtracted: validation.answers.length,
     candidatesReceived: run.rawCandidateCount,
     candidatesRejected: validation.rejectedCount,
@@ -217,7 +218,7 @@ export async function extractAnswers(
   log.info(
     {
       status: metadata.partial ? 'PARTIAL' : 'COMPLETED',
-      pageCount: pages.length,
+      pageCount: pageNumbers.length,
       chunkCount: chunks.length,
       failedChunks: run.failures.length,
       answerCount: validation.answers.length,
@@ -275,14 +276,13 @@ interface ChunkRunResult {
  */
 async function readChunks(input: {
   chunks: PageChunk[];
-  pages: PageImage[];
+  loadImages: PageImageLoader;
   provider: AIProvider;
   log: Logger;
   env: ReturnType<typeof getEnv>;
 }): Promise<ChunkRunResult> {
-  const { chunks, pages, provider, log, env } = input;
+  const { chunks, loadImages, provider, log, env } = input;
 
-  const byPageNumber = new Map(pages.map((page) => [page.pageNumber, page]));
   const entries: ChunkCandidate[] = [];
   const failures: FailedChunk[] = [];
 
@@ -298,9 +298,10 @@ async function readChunks(input: {
       await delay(env.ANSWER_CHUNK_DELAY_MS);
     }
 
-    const images = chunk.pageNumbers
-      .map((pageNumber) => byPageNumber.get(pageNumber))
-      .filter((page): page is PageImage => page !== undefined);
+    // Loaded per chunk rather than per document: holding every page's base64
+    // for the length of the run is what a fifty-page sheet cannot afford, and
+    // nothing outside this iteration reads them.
+    const images = await loadImages(chunk.pageNumbers);
 
     const chunkLog = log.child({
       chunkIndex: chunk.index,
@@ -498,33 +499,53 @@ function assertPrepared(document: AssessmentDocument): void {
   }
 }
 
+/** The document's prepared pages, in reading order. No bitmaps are read. */
+function orderedPageNumbers(document: AssessmentDocument): number[] {
+  return [...document.pages]
+    .sort((a, b) => a.pageNumber - b.pageNumber)
+    .map((page) => page.pageNumber);
+}
+
+type PageImageLoader = (pageNumbers: readonly number[]) => Promise<PageImage[]>;
+
 /**
- * Loads canonical page bitmaps — the same pixels Phase 2 wrote, which the
- * teacher will later see and which the stored coordinates are measured
- * against. Base64 is built here, at the provider boundary, and never enters a
- * log line, an API response or Redis.
+ * Reads canonical page bitmaps on demand — the same pixels Phase 2 wrote,
+ * which the teacher will later see and which the stored coordinates are
+ * measured against. Base64 is built here, at the provider boundary, and never
+ * enters a log line, an API response or Redis.
+ *
+ * On demand, and one chunk's worth at a time. Reading the whole document up
+ * front held every page's base64 for the entire run — on a fifty-page sheet
+ * that is fifty encoded bitmaps resident to serve two at a time. Returning
+ * only what the caller asked for lets the previous chunk's copies be collected
+ * as soon as its request is done.
  */
-async function loadPageImages(document: AssessmentDocument): Promise<PageImage[]> {
-  const storage = getDocumentStorage();
-  const pages = [...document.pages].sort((a, b) => a.pageNumber - b.pageNumber);
+function makePageImageLoader(document: AssessmentDocument): PageImageLoader {
+  const byPageNumber = new Map(document.pages.map((page) => [page.pageNumber, page]));
 
-  const images: PageImage[] = [];
+  return async (pageNumbers) => {
+    const storage = getDocumentStorage();
+    const images: PageImage[] = [];
 
-  // Sequential: a long sheet loaded in parallel would hold every bitmap in
-  // memory at once for no wall-clock gain.
-  for (const page of pages) {
-    const data = await storage.get(page.storageKey);
+    // Sequential: loading a chunk's pages in parallel would hold each one's
+    // buffer and its base64 at the same time for no wall-clock gain.
+    for (const pageNumber of pageNumbers) {
+      const page = byPageNumber.get(pageNumber);
+      if (!page) continue;
 
-    images.push({
-      pageNumber: page.pageNumber,
-      data: data.toString('base64'),
-      mimeType: page.mimeType,
-      width: page.width,
-      height: page.height,
-    });
-  }
+      const data = await storage.get(page.storageKey);
 
-  return images;
+      images.push({
+        pageNumber: page.pageNumber,
+        data: data.toString('base64'),
+        mimeType: page.mimeType,
+        width: page.width,
+        height: page.height,
+      });
+    }
+
+    return images;
+  };
 }
 
 async function persist(
