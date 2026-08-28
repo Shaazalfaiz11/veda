@@ -25,6 +25,19 @@ Question paper (PDF/PNG/JPEG)        Handwritten answer sheet
                         COMPLETED
 ```
 
+## What it looks like
+
+![Processing — the six stages, with the live one named](docs/screenshots/processing.png)
+
+The run reports the stage it is actually in. Nothing here is a fake
+progress bar; the percentage is derived from the stage the worker last wrote.
+
+![Review — questions, marks, and the handwriting each answer occupies](docs/screenshots/mapping.png)
+
+Every answer is drawn where the student wrote it. Question 3 is `Not marked`
+because the paper prints no marks for it — the system says so rather than
+inventing a total.
+
 ## What it does
 
 | | |
@@ -100,25 +113,50 @@ pacing stayed.
 
 ## Deploying
 
+Live:
+
+| | |
+| --- | --- |
+| **App** | https://answermapping.vercel.app |
+| **API** | https://veda-g9c9.onrender.com |
+
 The app is one Next.js codebase containing both the pages and the API, plus a
-worker process. **The worker and the API must stay together**: the worker
-writes the prepared page bitmaps to disk during `PREPARING`, and the API reads
-them back to serve the page the highlight overlay is drawn on. Separate them
-and every page image 404s.
+worker process.
 
-So the split is pages ↔ (API + worker), not frontend ↔ backend in the usual
-sense. Both halves are the same repository, deployed twice.
+The worker and the API used to be inseparable: the worker wrote prepared page
+bitmaps to the container's disk and the API read them back to serve the page
+the highlight overlay is drawn on. That disk does not survive a restart, so a
+completed assessment reopened to a broken image while its metadata sat intact
+in Redis. Both the uploads and the bitmaps now live in object storage instead,
+addressed by the same keys, and the constraint is gone. They still deploy
+together because there is no reason not to.
 
-### 1. Backend — Render
+### 1. Object storage — Cloudflare R2
 
-`render.yaml` declares the web service, a 1GB disk at `/app/.storage`, and the
-Redis the queue runs on.
+Any S3-compatible bucket works; R2 is what this runs on.
+
+1. R2 → **Create bucket**.
+2. **Manage API tokens** → an account token with **Object Read & Write**.
+3. Keep the Access Key ID, the Secret, and the S3 endpoint — the account URL,
+   `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`, *without* the bucket name.
+
+Cloudflare requires a card on file to enable R2 even inside the free
+allowance (10GB, 1M class-A operations, no egress fees).
+
+Leave `STORAGE_DRIVER` unset for local development and the filesystem is used,
+exactly as before.
+
+### 2. Backend — Render
+
+`render.yaml` declares the web service and the Redis the queue runs on.
 
 1. Render → **New** → **Blueprint** → pick this repository.
-2. It prompts for the two secrets marked `sync: false`:
+2. Set the secrets:
    - `GROQ_API_KEY` — from [console.groq.com/keys](https://console.groq.com/keys)
-   - `CORS_ALLOWED_ORIGINS` — leave blank for now; step 3 supplies it.
-3. Deploy. First build takes a while: the image bakes the ~90MB embedding
+   - `STORAGE_DRIVER=r2`, `R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`,
+     `R2_SECRET_ACCESS_KEY` — from step 1
+   - `CORS_ALLOWED_ORIGINS` — leave blank for now; step 4 supplies it.
+3. Deploy. The first build takes a while: the image bakes the ~90MB embedding
    model in so the first request does not have to download it.
 4. Check `https://<your-service>.onrender.com/api/health` returns
    `{"status":"ok","redis":"up"}`.
@@ -127,11 +165,10 @@ The service runs `scripts/start-production.mjs`, which starts the web server
 and the worker in one process tree and fails them together, so a restart brings
 both back.
 
-> The **Starter** plan is deliberate. The 512MB free tier cannot hold
-> onnxruntime and Next at once, and the free tier also sleeps — a sleeping
-> instance drops a ten-minute job halfway through.
+This runs on the **free** instance. It fits, but only just — see
+[Known limitations](#known-limitations) for what that costs.
 
-### 2. Frontend — Vercel
+### 3. Frontend — Vercel
 
 1. Vercel → **Add New** → **Project** → import this repository.
 2. Framework preset **Next.js**, defaults otherwise.
@@ -145,10 +182,11 @@ both back.
    it later needs a redeploy, not just a restart.
 4. Deploy, and note the assigned URL.
 
-### 3. Close the loop
+### 4. Close the loop
 
 Set `CORS_ALLOWED_ORIGINS` on the Render service to the exact Vercel origin —
-no trailing slash, e.g. `https://veda.vercel.app` — and redeploy Render.
+no trailing slash, e.g. `https://answermapping.vercel.app` — and redeploy
+Render.
 
 Without this the browser blocks every call and the UI sits on "Loading the
 mapping…". The allowlist takes exact origins rather than `*` on purpose: this
@@ -160,19 +198,18 @@ should go to the Render origin, and the page bitmaps under
 
 ### Deploying as one service instead
 
-Simpler, and what the architecture actually wants: deploy only to Render and
-leave `NEXT_PUBLIC_API_BASE_URL` and `CORS_ALLOWED_ORIGINS` unset. Everything
-is same-origin, there is no CORS, and there is one deployment to keep in step.
-The Vercel half exists because a separate frontend host was asked for, not
-because the app needs it.
+Simpler: deploy only to Render and leave `NEXT_PUBLIC_API_BASE_URL` and
+`CORS_ALLOWED_ORIGINS` unset. Everything is same-origin, there is no CORS, and
+there is one deployment to keep in step. The Vercel half exists because a
+separate frontend host was asked for, not because the app needs it.
 
 > Vercel builds the whole repository, so the API routes are deployed there too.
-> They have no Redis, no worker and no disk behind them, and the UI never calls
-> them — `NEXT_PUBLIC_API_BASE_URL` points every request at Render. They are
-> dead weight, not a second backend.
+> They have no Redis, no worker and no storage credentials behind them, and the
+> UI never calls them — `NEXT_PUBLIC_API_BASE_URL` points every request at
+> Render. They are dead weight, not a second backend.
 
-**Vercel alone will not work.** No persistent disk, no long-running worker, and
-a 10-minute pipeline against a serverless function timeout.
+**Vercel alone will not work.** No long-running worker, and a multi-minute
+pipeline against a serverless function timeout.
 
 ## Known limitations
 
@@ -193,6 +230,16 @@ Worth stating plainly rather than discovering in a demo:
   generated rubric is flagged for review by design.
 - **Exam PDFs are not committed.** `fixtures/` is gitignored — the papers used
   in development are third-party material. See below to rebuild a pair.
+- **The free Render instance has almost no headroom.** 512MB, and a run peaks
+  around 470-500MB of it. The web server shares that container with the worker,
+  so while the worker is at its peak the API can stop answering for a few
+  seconds and the UI shows "Lost contact with the server. Still retrying…".
+  It recovers on its own and the run completes; every measured run has. A
+  larger instance is the only real fix.
+- **Groq's free tier is the pacing constraint, not the hardware.** 8,000 tokens
+  per minute, and one page image costs roughly 2,700 of them. The delays
+  between calls exist to stay under that ceiling, and they are most of the
+  wall-clock time. Faster hardware would not change it; a paid Groq tier would.
 
 ## Architecture
 
