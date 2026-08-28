@@ -13,24 +13,13 @@ import { logger } from '@/lib/logger';
  * window per call. The fixed delays, crude as they are, happen to sit close to
  * what an 8,000 TPM ceiling allows for a page image.
  *
- * So the stage delays keep the spacing, and this keeps the two things they
- * cannot.
+ * So the stage delays keep the spacing, and this keeps the one thing they
+ * cannot: when Groq actually refuses, every caller in the process holds off
+ * for as long as it asked, rather than the next stage walking into the same
+ * wall a moment later. Admission is serialised so that hold is universal.
  *
- * The first is a refusal: when Groq actually says no, every caller in the
- * process holds off for as long as it asked, rather than the next stage
- * walking into the same wall a moment later. Admission is serialised so that
- * hold is universal.
- *
- * The second is the budget Groq reports unprompted. Every response carries the
- * tokens it has left and when they return, which is the figure a local window
- * could never be reconciled with -- and it was being parsed and dropped. An
- * answer-extraction call issued 0.8 seconds after question extraction returned
- * was refused for 44 seconds, on a run whose total was 201. Groq had already
- * said it would not fit. Nothing asked.
- *
- * That reading gates admission now. The locally accumulated spend record still
- * does not: predicting admission from it is what measured slower, and it is
- * kept only because it costs nothing and makes the debug log worth reading.
+ * The spend record is kept because it costs nothing and makes the debug log
+ * worth reading. Nothing gates on it.
  */
 
 interface Spend {
@@ -55,18 +44,6 @@ export class GroqRateLimiter {
 
   /** Wall-clock time before which nothing may be sent, after a refusal. */
   private blockedUntil = 0;
-
-  /*
-   * What Groq last said was left in its window, and when that statement stops
-   * describing it.
-   *
-   * This is not a local budget and must not be treated as one. It is a reading
-   * taken at the moment of a response, decremented as calls are admitted
-   * against it, and discarded once the window it described has rolled. Holding
-   * it any longer would block on a window that has already refilled.
-   */
-  private remaining: number | null = null;
-  private remainingExpiresAt = 0;
 
   /** Serialises admission so two callers cannot both claim the same room. */
   private gate: Promise<void> = Promise.resolve();
@@ -99,30 +76,8 @@ export class GroqRateLimiter {
    * until the time it named has passed. The spend record is kept for the
    * observability, not to gate on.
    */
-  private waitFor(estimate: number, now: number): number {
+  private waitFor(_estimate: number, now: number): number {
     if (now < this.blockedUntil) return this.blockedUntil - now;
-
-    // The reading has aged out: the window it described has rolled, so it says
-    // nothing about the one we are in now.
-    if (this.remaining !== null && now >= this.remainingExpiresAt) {
-      this.remaining = null;
-    }
-
-    /*
-     * Groq states its own remaining budget on every response, which is the one
-     * number a local window could never reconcile itself with. Sending a call
-     * it has already said will not fit buys a refusal and the full reset --
-     * measured at 44 seconds for an answer-extraction request issued 0.8s
-     * after question extraction returned.
-     *
-     * Waiting until the stated reset is bounded by construction: the reading
-     * expires at that same moment, so the next pass through clears it and
-     * admits. There is no path here that waits forever.
-     */
-    if (this.remaining !== null && estimate > this.remaining) {
-      return this.remainingExpiresAt - now;
-    }
-
     return 0;
   }
 
@@ -166,30 +121,12 @@ export class GroqRateLimiter {
       const booking: Spend = { at: Date.now(), tokens: estimate };
       this.spends.push(booking);
 
-      // Spend it against the provider's reading too. Two calls admitted in one
-      // window would otherwise both measure themselves against the same
-      // headroom and the second would take room the first had already claimed.
-      if (this.remaining !== null) {
-        this.remaining = Math.max(0, this.remaining - estimate);
-      }
-
       return (actual, headers) => {
         // Replace the estimate with what the call really cost.
         booking.tokens = actual ?? estimate;
 
         if (headers.limitTokens !== null && headers.limitTokens > 0) {
           this.limit = headers.limitTokens;
-        }
-
-        if (headers.remainingTokens !== null) {
-          this.remaining = headers.remainingTokens;
-          /*
-           * Good only until the window rolls. Groq reports the reset alongside
-           * it; without one, a full window is the safe assumption -- too long
-           * and a caller waits for nothing, too short and it walks into the
-           * refusal this exists to avoid.
-           */
-          this.remainingExpiresAt = Date.now() + (headers.resetTokensMs ?? WINDOW_MS);
         }
       };
     } finally {
