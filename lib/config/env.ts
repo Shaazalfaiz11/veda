@@ -39,6 +39,24 @@ const EnvSchema = z.object({
    */
   PREPARED_PAGE_MAX_DIMENSION: z.coerce.number().int().min(256).max(8192).default(2000),
 
+  // --- Object storage -------------------------------------------------------
+  /**
+   * Where uploaded PDFs and prepared page bitmaps live.
+   *
+   * "local" is the filesystem under STORAGE_ROOT, which is right for
+   * development and test. "r2" is Cloudflare R2, which is what a deployment
+   * on an ephemeral container needs -- the disk is replaced on every restart,
+   * and losing the bitmaps leaves an assessment whose metadata survives in
+   * Redis but whose review screen has nothing to draw on.
+   */
+  STORAGE_DRIVER: z.enum(['local', 'r2']).default('local'),
+
+  /** Account endpoint, e.g. https://<accountid>.r2.cloudflarestorage.com */
+  R2_ENDPOINT: z.string().url().optional(),
+  R2_BUCKET: z.string().min(1).optional(),
+  R2_ACCESS_KEY_ID: z.string().min(1).optional(),
+  R2_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+
   // --- Gemini -------------------------------------------------------------
   /**
    * Server-only. Optional so that lint, typecheck, build and the offline test
@@ -291,6 +309,25 @@ const EnvSchema = z.object({
   GRADING_CALL_DELAY_MS: z.coerce.number().int().min(0).max(10_000).default(250),
 })
   .superRefine((env, ctx) => {
+    // A deployment that names the R2 driver without its credentials would
+    // start cleanly and then fail on the first upload. Refused here instead.
+    if (env.STORAGE_DRIVER === 'r2') {
+      for (const key of [
+        'R2_ENDPOINT',
+        'R2_BUCKET',
+        'R2_ACCESS_KEY_ID',
+        'R2_SECRET_ACCESS_KEY',
+      ] as const) {
+        if (!env[key]) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [key],
+            message: `${key} is required when STORAGE_DRIVER is "r2".`,
+          });
+        }
+      }
+    }
+
     // Overlap at or above the chunk size means the chunk walk never advances,
     // so the sheet would never be fully covered. Caught at startup rather
     // than as a hang partway through a real extraction.

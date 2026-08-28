@@ -6,6 +6,7 @@ import { Readable } from 'node:stream';
 import { getEnv } from '@/lib/config';
 import { InternalError, NotFoundError, ValidationError } from '@/lib/errors';
 import { assertSafeKey } from './keys';
+import { R2DocumentStorage } from './r2-storage';
 import type { DocumentStorageProvider, PutOptions, StoredObject } from './types';
 
 /**
@@ -124,12 +125,33 @@ function isNotFound(error: unknown): boolean {
 }
 
 let storageOverride: DocumentStorageProvider | null = null;
+let r2Singleton: DocumentStorageProvider | null = null;
 
+/**
+ * The storage provider this deployment uses.
+ *
+ * `local` is the filesystem, for development and test. `r2` is Cloudflare R2,
+ * which is what a deployment on an ephemeral container needs: the disk there
+ * is replaced on every restart, and an assessment whose page bitmaps vanished
+ * still had its metadata in Redis, so the review screen drew its overlay onto
+ * a broken image.
+ *
+ * The R2 provider is memoised. The local one is cheap to construct, but an
+ * S3 client carries a connection pool that should not be rebuilt per call.
+ */
 export function getDocumentStorage(): DocumentStorageProvider {
-  return storageOverride ?? new LocalDocumentStorage();
+  if (storageOverride) return storageOverride;
+
+  if (getEnv().STORAGE_DRIVER === 'r2') {
+    r2Singleton ??= new R2DocumentStorage();
+    return r2Singleton;
+  }
+
+  return new LocalDocumentStorage();
 }
 
 /** Test seam: swap the provider, or pass null to restore the default. */
 export function setDocumentStorage(provider: DocumentStorageProvider | null): void {
   storageOverride = provider;
+  r2Singleton = null;
 }
