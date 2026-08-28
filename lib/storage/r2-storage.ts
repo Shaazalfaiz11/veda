@@ -187,11 +187,32 @@ export class R2DocumentStorage implements DocumentStorageProvider {
 
   private translate(error: unknown, key: string): Error {
     if (error instanceof NotFoundError) return error;
+
+    /*
+     * A missing bucket is a 404 like a missing object, and reporting it as
+     * one sends whoever reads the log looking for a page that was never the
+     * problem. It is a configuration fault -- wrong name, wrong account, or a
+     * token scoped elsewhere -- and it will affect every key, not this one.
+     */
+    if (isMissingBucket(error)) {
+      return new InternalError(
+        `Storage bucket "${this.bucket}" does not exist or this token cannot reach it.`,
+      );
+    }
+
     if (isNotFound(error)) return new NotFoundError(`Stored object ${key} was not found.`);
 
     // The endpoint and credentials are deliberately kept out of the message.
     return new InternalError(`Storage operation failed for key ${key}.`);
   }
+}
+
+function isMissingBucket(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { name?: string }).name === 'NoSuchBucket'
+  );
 }
 
 function isNotFound(error: unknown): boolean {
