@@ -10,6 +10,8 @@ import {
   markProcessing,
   markStageCompleted,
 } from '@/lib/services/assessment-service';
+// TEMPORARY DIAGNOSTIC — stall investigation.
+import { markStage } from '@/lib/diagnostics/loop-probe';
 import { hasCompletedStage } from './idempotency';
 import { STAGE_HANDLERS, type StageContext } from './stages';
 
@@ -66,6 +68,7 @@ export async function runAssessmentPipeline(
       }
 
       await markProcessing(assessmentId, stage);
+      markStage(stage);
 
       const stageLogger = jobLogger({ assessmentId, jobId, stage, status: 'STARTED' });
       stageLogger.info('assessment.stage.started');

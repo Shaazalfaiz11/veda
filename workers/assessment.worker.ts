@@ -13,6 +13,8 @@ import { QUEUE_NAMES } from '@/lib/queue/queues';
 import { AssessmentJobDataSchema, type AssessmentJobData } from '@/lib/queue/jobs';
 import { runAssessmentPipeline, recordPipelineFailure } from '@/lib/services/pipeline';
 import { getAssessment } from '@/lib/services/assessment-service';
+// TEMPORARY DIAGNOSTIC — stall investigation.
+import { startLoopProbe } from '@/lib/diagnostics/loop-probe';
 
 /**
  * Assessment processing worker.
@@ -69,6 +71,8 @@ async function processJob(job: Job<AssessmentJobData>): Promise<void> {
   }
 }
 
+startLoopProbe();
+
 const worker = new Worker<AssessmentJobData>(QUEUE_NAMES.ASSESSMENT_PROCESSING, processJob, {
   connection,
   concurrency: env.WORKER_CONCURRENCY,
@@ -122,6 +126,11 @@ worker.on('failed', async (job, error) => {
 
 worker.on('error', (error) => {
   logger.error({ err: { message: error.message } }, 'assessment.worker.error');
+});
+
+// TEMPORARY DIAGNOSTIC — stall investigation.
+worker.on('stalled', (jobId) => {
+  logger.error({ jobId }, 'diag.job.stalled');
 });
 
 async function bootstrap(): Promise<void> {

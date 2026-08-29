@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { DependencyUnavailableError } from '@/lib/errors';
 import { normalizeVector, type EmbeddingProvider } from './types';
 
@@ -39,8 +40,18 @@ let extractorPromise: Promise<FeatureExtractor> | null = null;
 async function loadExtractor(): Promise<FeatureExtractor> {
   extractorPromise ??= (async () => {
     try {
+      // TEMPORARY DIAGNOSTIC — stall investigation.
+      const startedAt = Date.now();
+      logger.info({ model: MODEL_ID }, 'diag.model_load.start');
+
       const { pipeline } = await import('@huggingface/transformers');
       const extractor = await pipeline('feature-extraction', MODEL_ID);
+
+      logger.info(
+        { model: MODEL_ID, durationMs: Date.now() - startedAt },
+        'diag.model_load.end',
+      );
+
       return extractor as unknown as FeatureExtractor;
     } catch (error) {
       // Clear it, so a transient download failure does not permanently
